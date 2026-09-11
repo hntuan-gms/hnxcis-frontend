@@ -4,12 +4,11 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
 import {
-  BTN_OUTLINE,
   BTN_PRIMARY,
   CatalogPage,
   CatalogToolbar,
@@ -367,30 +366,10 @@ export const Ims015TuDienView: React.FC = () => {
           </>
         }
         actions={
-          <>
-            {/*
-              Import Excel: Bảng 05 yêu cầu nút này, nhưng nạp hàng loạt cần thư
-              viện đọc .xlsx và cần backend validate từng dòng trước khi ghi. Hiện
-              nút ở trạng thái disable để đúng đặc tả mà không giả vờ có chức năng.
-
-              Nút Export của Bảng 05 giờ nằm ở thanh công cụ bên dưới ("Xuất File")
-              cùng chỗ với sáu màn hình danh mục còn lại — một chức năng, một nút.
-            */}
-            <button
-              type="button"
-              disabled
-              title="Cần backend để đọc và validate file — chưa khả dụng ở giai đoạn UI tĩnh"
-              className={BTN_OUTLINE}
-            >
-              <Upload className="h-4 w-4" />
-              Import Excel
-            </button>
-
-            <button type="button" onClick={() => setFormTarget({ row: null })} className={BTN_PRIMARY}>
-              <Plus className="h-4 w-4" />
-              Thêm
-            </button>
-          </>
+          <button type="button" onClick={() => setFormTarget({ row: null })} className={BTN_PRIMARY}>
+            <Plus className="h-4 w-4" />
+            Thêm
+          </button>
         }
       >
         {/*
@@ -487,11 +466,20 @@ export const Ims015TuDienView: React.FC = () => {
           các tiêu chí trên.
         </p>
 
+        {/*
+          Import Excel: Bảng 05 yêu cầu nút này, nhưng nạp hàng loạt cần thư viện
+          đọc .xlsx và cần backend validate từng dòng trước khi ghi — chưa có ở
+          giai đoạn UI tĩnh. `showImportExcel` render đúng một nút mờ dùng chung
+          với ba màn hình danh mục còn lại (Quốc gia/Tỉnh thành/Phường xã), cùng
+          vị trí trong thanh công cụ — không phải nút riêng cạnh "Thêm" như bản
+          trước, để bốn màn hình danh mục có đúng một cách trình bày.
+        */}
         <CatalogToolbar
           status={list.draftStatus}
           onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          showImportExcel
         />
 
         {/* Bảng danh sách — bảy cột theo Bảng 04, thêm cột Trạng thái. */}
