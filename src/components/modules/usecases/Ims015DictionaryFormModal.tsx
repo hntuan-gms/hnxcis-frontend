@@ -339,7 +339,7 @@ export const Ims015DictionaryFormModal: React.FC<Ims015DictionaryFormModalProps>
         </FormField>
 
         <FormField
-          label="Thứ tự"
+          label="Thứ tự sắp xếp"
           error={shownErrors.displayOrder}
           hint="Không bắt buộc — để trống nếu chưa cần sắp thứ tự"
         >

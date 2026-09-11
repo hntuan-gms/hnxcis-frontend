@@ -255,7 +255,7 @@ export function useColumnVisibility(specs: readonly ColumnSpec[]): ColumnVisibil
  * Dùng chung cho mọi dropdown không có lớp phủ (`Columns`, lọc trạng thái...) —
  * nếu không tự đóng, chúng sẽ nằm chắn trên bảng suốt cả phiên làm việc.
  */
-function useCloseOnOutsideOrEscape(
+export function useCloseOnOutsideOrEscape(
   open: boolean,
   onClose: () => void,
   ref: React.RefObject<HTMLElement>,

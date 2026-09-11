@@ -80,7 +80,7 @@ const searchFields = (row: ProvinceRow) => [
 const COLUMNS: readonly ColumnSpec[] = [
   { key: 'stt', label: 'STT' },
   { key: 'code', label: 'Mã' },
-  { key: 'name', label: 'Giá trị' },
+  { key: 'name', label: 'Tên' },
   { key: 'country', label: 'Quốc gia' },
   { key: 'region', label: 'Vùng/Miền' },
   { key: 'description', label: 'Mô tả' },
@@ -240,7 +240,7 @@ export const Ims003TinhThanhView: React.FC = () => {
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
           onSearch={list.applySearch}
-          searchPlaceholder="Tìm kiếm Mã, Giá trị..."
+          searchPlaceholder="Tìm kiếm Mã, Tên..."
           status={list.draftStatus}
           onStatus={list.applyStatus}
           columns={columns}
@@ -283,7 +283,7 @@ export const Ims003TinhThanhView: React.FC = () => {
                 )}
                 {columns.isVisible('name') && (
                   <SortableTh
-                    label="Giá trị"
+                    label="Tên"
                     sortKey="provinceName"
                     sort={list.sort}
                     onSort={list.changeSort}

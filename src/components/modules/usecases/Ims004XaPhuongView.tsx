@@ -78,7 +78,7 @@ const searchFields = (row: WardRow) => [
 const COLUMNS: readonly ColumnSpec[] = [
   { key: 'stt', label: 'STT' },
   { key: 'code', label: 'Mã' },
-  { key: 'name', label: 'Giá trị' },
+  { key: 'name', label: 'Tên' },
   { key: 'province', label: 'Tỉnh/Thành' },
   { key: 'description', label: 'Mô tả' },
   { key: 'status', label: 'Trạng thái' },
@@ -359,7 +359,7 @@ export const Ims004XaPhuongView: React.FC = () => {
                 )}
                 {columns.isVisible('name') && (
                   <SortableTh
-                    label="Giá trị"
+                    label="Tên"
                     sortKey="wardName"
                     sort={list.sort}
                     onSort={list.changeSort}

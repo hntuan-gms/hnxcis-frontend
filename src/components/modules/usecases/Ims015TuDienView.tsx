@@ -151,7 +151,7 @@ const COLUMNS: readonly ColumnSpec[] = [
   { key: 'lovGroup', label: 'Loại' },
   { key: 'code', label: 'Mã' },
   { key: 'value', label: 'Giá trị' },
-  { key: 'order', label: 'Thứ tự' },
+  { key: 'order', label: 'Thứ tự sắp xếp' },
   { key: 'parent', label: 'Loại cha' },
   { key: 'description', label: 'Mô tả' },
   { key: 'status', label: 'Trạng thái' },
@@ -339,7 +339,7 @@ export const Ims015TuDienView: React.FC = () => {
       { header: 'Mã', value: (r: LookupValueRow) => r.code },
       { header: 'Giá trị', value: (r: LookupValueRow) => r.value },
       { header: 'Loại', value: (r: LookupValueRow) => r.lovGroup },
-      { header: 'Thứ tự', value: (r: LookupValueRow) => r.displayOrder ?? '' },
+      { header: 'Thứ tự sắp xếp', value: (r: LookupValueRow) => r.displayOrder ?? '' },
       { header: 'Loại cha', value: (r: LookupValueRow) => parentLabelOf(r.lookupParentId) ?? '' },
       { header: 'Mô tả', value: (r: LookupValueRow) => r.description },
       {
@@ -422,13 +422,13 @@ export const Ims015TuDienView: React.FC = () => {
           </label>
 
           <label className="flex items-center gap-2">
-            <span className="w-18 shrink-0 text-[13px] text-[#525252]">Thứ tự</span>
+            <span className="w-18 shrink-0 text-[13px] text-[#525252]">Thứ tự sắp xếp</span>
             <input
               type="number"
               min={0}
               value={draftCriteria.displayOrder}
               onChange={(e) => setCriteria('displayOrder', e.target.value)}
-              placeholder="Nhập thứ tự"
+              placeholder="Nhập thứ tự sắp xếp"
               className={INPUT_CLASS}
             />
           </label>
@@ -466,20 +466,11 @@ export const Ims015TuDienView: React.FC = () => {
           các tiêu chí trên.
         </p>
 
-        {/*
-          Import Excel: Bảng 05 yêu cầu nút này, nhưng nạp hàng loạt cần thư viện
-          đọc .xlsx và cần backend validate từng dòng trước khi ghi — chưa có ở
-          giai đoạn UI tĩnh. `showImportExcel` render đúng một nút mờ dùng chung
-          với ba màn hình danh mục còn lại (Quốc gia/Tỉnh thành/Phường xã), cùng
-          vị trí trong thanh công cụ — không phải nút riêng cạnh "Thêm" như bản
-          trước, để bốn màn hình danh mục có đúng một cách trình bày.
-        */}
         <CatalogToolbar
           status={list.draftStatus}
           onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
-          showImportExcel
         />
 
         {/* Bảng danh sách — bảy cột theo Bảng 04, thêm cột Trạng thái. */}
@@ -513,7 +504,7 @@ export const Ims015TuDienView: React.FC = () => {
                 )}
                 {columns.isVisible('order') && (
                   <SortableTh
-                    label="Thứ tự"
+                    label="Thứ tự sắp xếp"
                     sortKey="displayOrder"
                     sort={list.sort}
                     onSort={list.changeSort}
