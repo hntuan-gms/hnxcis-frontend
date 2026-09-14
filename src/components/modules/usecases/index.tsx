@@ -13,6 +13,7 @@ import { Ims004XaPhuongView } from './Ims004XaPhuongView';
 import { Ims006PhongBanView } from './Ims006PhongBanView';
 import { Ims008LoaiHinhDnView } from './Ims008LoaiHinhDnView';
 import { Ims015TuDienView } from './Ims015TuDienView';
+import { Fr053NgayNghiView } from './Fr053NgayNghiView';
 
 /**
  * Bảng tra mã module → view, cho khối chức năng `uc_*` của cổng IMS.
@@ -29,6 +30,7 @@ const VIEWS: Record<string, React.ComponentType> = {
   uc_hnx_srs: HnxSrsChucVuView,
   uc_ims_008: Ims008LoaiHinhDnView,
   uc_ims_015: Ims015TuDienView,
+  uc_fr_053: Fr053NgayNghiView,
 };
 
 interface UseCaseRouterProps {

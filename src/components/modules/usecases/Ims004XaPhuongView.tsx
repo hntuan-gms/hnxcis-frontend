@@ -10,10 +10,13 @@ import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
 import {
   BTN_PRIMARY,
+  BULK_CHECKBOX_CLASS,
+  BulkActionBar,
   CatalogPage,
   CatalogToolbar,
   ColumnSpec,
   ConfirmDeleteDialog,
+  ConfirmDeleteManyDialog,
   EmptyRow,
   SELECT_CLASS,
   SortState,
@@ -23,6 +26,7 @@ import {
   TH_CLASS,
   TablePager,
   ToastStack,
+  useBulkSelection,
   useColumnVisibility,
   useToasts,
 } from './catalogUi';
@@ -74,7 +78,7 @@ const searchFields = (row: WardRow) => [
 const COLUMNS: readonly ColumnSpec[] = [
   { key: 'stt', label: 'STT' },
   { key: 'code', label: 'Mã' },
-  { key: 'name', label: 'Giá trị' },
+  { key: 'name', label: 'Tên' },
   { key: 'province', label: 'Tỉnh/Thành' },
   { key: 'description', label: 'Mô tả' },
   { key: 'status', label: 'Trạng thái' },
@@ -149,6 +153,14 @@ export const Ims004XaPhuongView: React.FC = () => {
   const { toasts, pushToast } = useToasts();
 
   const columns = useColumnVisibility(COLUMNS);
+
+  /**
+   * Chọn nhiều dòng để xóa hàng loạt (theo file mẫu, không có trong SRS).
+   * Xem chú thích đầy đủ ở `Ims002QuocGiaView.tsx`.
+   */
+  const activeWards = useMemo(() => wards.filter((r) => r.deleteFlg === 0), [wards]);
+  const bulk = useBulkSelection(activeWards);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   /* ------------------------------------------------------------- thao tác */
 
@@ -233,6 +245,20 @@ export const Ims004XaPhuongView: React.FC = () => {
     pushToast('danger', `Đã xóa phường xã “${row.wardNameVn}”`);
   };
 
+  /** Xóa mềm hàng loạt — cùng một luật với xóa từng dòng, chỉ áp cho nhiều id cùng lúc. */
+  const deleteManyWards = () => {
+    const ids = bulk.selectedIds;
+    const now = new Date().toISOString();
+    setWards((prev) =>
+      prev.map((r) =>
+        ids.has(r.id) ? { ...r, deleteFlg: 1, updatedBy: 'nqt.hnx', updatedDate: now } : r,
+      ),
+    );
+    pushToast('danger', `Đã xóa ${ids.size} bản ghi`);
+    bulk.clear();
+    setBulkDeleteConfirm(false);
+  };
+
   /**
    * Xuất File — CSV có BOM UTF-8, xuất toàn bộ kết quả lọc (`list.visibleRows`)
    * chứ không phải trang đang xem.
@@ -280,6 +306,7 @@ export const Ims004XaPhuongView: React.FC = () => {
           onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          showImportExcel
         >
           {/* Bộ lọc cấp cha, riêng của màn hình này — xếp cùng hàng với ô từ khóa. */}
           <select
@@ -297,11 +324,26 @@ export const Ims004XaPhuongView: React.FC = () => {
           </select>
         </CatalogToolbar>
 
+        <BulkActionBar
+          count={bulk.count}
+          onClear={bulk.clear}
+          onDelete={() => setBulkDeleteConfirm(true)}
+        />
+
         {/* Bảng danh sách — các cột theo SRS Bảng 04, thêm cột Tỉnh/Thành (FK). */}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr>
+                <th scope="col" className={`${TH_CLASS} w-10 text-center`}>
+                  <input
+                    type="checkbox"
+                    checked={bulk.isAllSelected(list.pageRows)}
+                    onChange={() => bulk.toggleAll(list.pageRows)}
+                    aria-label="Chọn tất cả dòng trên trang này"
+                    className={BULK_CHECKBOX_CLASS}
+                  />
+                </th>
                 {columns.isVisible('stt') && (
                   <th scope="col" className={`${TH_CLASS} w-15 text-center`}>
                     STT
@@ -317,7 +359,7 @@ export const Ims004XaPhuongView: React.FC = () => {
                 )}
                 {columns.isVisible('name') && (
                   <SortableTh
-                    label="Giá trị"
+                    label="Tên"
                     sortKey="wardName"
                     sort={list.sort}
                     onSort={list.changeSort}
@@ -356,13 +398,22 @@ export const Ims004XaPhuongView: React.FC = () => {
             <tbody>
               {list.pageRows.length === 0 ? (
                 <EmptyRow
-                  colSpan={columns.visibleCount + 1}
+                  colSpan={columns.visibleCount + 2}
                   title="Không tìm thấy dữ liệu"
                   hint="Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm"
                 />
               ) : (
                 list.pageRows.map((row, idx) => (
                   <tr key={row.id} className="hover:bg-[#F8FAFC]">
+                    <td className={`${TD_CLASS} text-center`}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(row.id)}
+                        onChange={() => bulk.toggle(row.id)}
+                        aria-label={`Chọn ${row.wardNameVn}`}
+                        className={BULK_CHECKBOX_CLASS}
+                      />
+                    </td>
                     {columns.isVisible('stt') && (
                       <td className={`${TD_CLASS} text-center text-slate-500`}>
                         {list.startIdx + idx + 1}
@@ -472,6 +523,15 @@ export const Ims004XaPhuongView: React.FC = () => {
           note="Bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => deleteWard(deleteTarget)}
+        />
+      )}
+
+      {bulkDeleteConfirm && (
+        <ConfirmDeleteManyDialog
+          count={bulk.count}
+          note="Các bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
+          onCancel={() => setBulkDeleteConfirm(false)}
+          onConfirm={deleteManyWards}
         />
       )}
 

@@ -10,10 +10,13 @@ import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
 import {
   BTN_PRIMARY,
+  BULK_CHECKBOX_CLASS,
+  BulkActionBar,
   CatalogPage,
   CatalogToolbar,
   ColumnSpec,
   ConfirmDeleteDialog,
+  ConfirmDeleteManyDialog,
   EmptyRow,
   SortState,
   SortableTh,
@@ -22,6 +25,7 @@ import {
   TH_CLASS,
   TablePager,
   ToastStack,
+  useBulkSelection,
   useColumnVisibility,
   useToasts,
 } from './catalogUi';
@@ -76,7 +80,7 @@ const searchFields = (row: ProvinceRow) => [
 const COLUMNS: readonly ColumnSpec[] = [
   { key: 'stt', label: 'STT' },
   { key: 'code', label: 'Mã' },
-  { key: 'name', label: 'Giá trị' },
+  { key: 'name', label: 'Tên' },
   { key: 'country', label: 'Quốc gia' },
   { key: 'region', label: 'Vùng/Miền' },
   { key: 'description', label: 'Mô tả' },
@@ -120,6 +124,14 @@ export const Ims003TinhThanhView: React.FC = () => {
   const { toasts, pushToast } = useToasts();
 
   const columns = useColumnVisibility(COLUMNS);
+
+  /**
+   * Chọn nhiều dòng để xóa hàng loạt (theo file mẫu, không có trong SRS).
+   * Xem chú thích đầy đủ ở `Ims002QuocGiaView.tsx`.
+   */
+  const activeProvinces = useMemo(() => provinces.filter((r) => r.deleteFlg === 0), [provinces]);
+  const bulk = useBulkSelection(activeProvinces);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   /* ------------------------------------------------------------- thao tác */
 
@@ -171,6 +183,20 @@ export const Ims003TinhThanhView: React.FC = () => {
     pushToast('danger', `Đã xóa tỉnh thành “${row.provinceNameVn}”`);
   };
 
+  /** Xóa mềm hàng loạt — cùng một luật với xóa từng dòng, chỉ áp cho nhiều id cùng lúc. */
+  const deleteManyProvinces = () => {
+    const ids = bulk.selectedIds;
+    const now = new Date().toISOString();
+    setProvinces((prev) =>
+      prev.map((r) =>
+        ids.has(r.id) ? { ...r, deleteFlg: 1, updatedBy: 'nqt.hnx', updatedDate: now } : r,
+      ),
+    );
+    pushToast('danger', `Đã xóa ${ids.size} bản ghi`);
+    bulk.clear();
+    setBulkDeleteConfirm(false);
+  };
+
   /**
    * Xuất File — CSV có BOM UTF-8, xuất toàn bộ kết quả lọc (`list.visibleRows`)
    * chứ không phải trang đang xem.
@@ -214,11 +240,18 @@ export const Ims003TinhThanhView: React.FC = () => {
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
           onSearch={list.applySearch}
-          searchPlaceholder="Tìm kiếm Mã, Giá trị..."
+          searchPlaceholder="Tìm kiếm Mã, Tên..."
           status={list.draftStatus}
           onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          showImportExcel
+        />
+
+        <BulkActionBar
+          count={bulk.count}
+          onClear={bulk.clear}
+          onDelete={() => setBulkDeleteConfirm(true)}
         />
 
         {/* Bảng danh sách — các cột theo SRS Bảng 04, thêm Quốc gia và Vùng/Miền. */}
@@ -226,6 +259,15 @@ export const Ims003TinhThanhView: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr>
+                <th scope="col" className={`${TH_CLASS} w-10 text-center`}>
+                  <input
+                    type="checkbox"
+                    checked={bulk.isAllSelected(list.pageRows)}
+                    onChange={() => bulk.toggleAll(list.pageRows)}
+                    aria-label="Chọn tất cả dòng trên trang này"
+                    className={BULK_CHECKBOX_CLASS}
+                  />
+                </th>
                 {columns.isVisible('stt') && (
                   <th scope="col" className={`${TH_CLASS} w-15 text-center`}>
                     STT
@@ -241,7 +283,7 @@ export const Ims003TinhThanhView: React.FC = () => {
                 )}
                 {columns.isVisible('name') && (
                   <SortableTh
-                    label="Giá trị"
+                    label="Tên"
                     sortKey="provinceName"
                     sort={list.sort}
                     onSort={list.changeSort}
@@ -288,13 +330,22 @@ export const Ims003TinhThanhView: React.FC = () => {
             <tbody>
               {list.pageRows.length === 0 ? (
                 <EmptyRow
-                  colSpan={columns.visibleCount + 1}
+                  colSpan={columns.visibleCount + 2}
                   title="Không tìm thấy dữ liệu"
                   hint="Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm"
                 />
               ) : (
                 list.pageRows.map((row, idx) => (
                   <tr key={row.id} className="hover:bg-[#F8FAFC]">
+                    <td className={`${TD_CLASS} text-center`}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(row.id)}
+                        onChange={() => bulk.toggle(row.id)}
+                        aria-label={`Chọn ${row.provinceNameVn}`}
+                        className={BULK_CHECKBOX_CLASS}
+                      />
+                    </td>
                     {columns.isVisible('stt') && (
                       <td className={`${TD_CLASS} text-center text-slate-500`}>
                         {list.startIdx + idx + 1}
@@ -404,6 +455,15 @@ export const Ims003TinhThanhView: React.FC = () => {
           note="Bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => deleteProvince(deleteTarget)}
+        />
+      )}
+
+      {bulkDeleteConfirm && (
+        <ConfirmDeleteManyDialog
+          count={bulk.count}
+          note="Các bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
+          onCancel={() => setBulkDeleteConfirm(false)}
+          onConfirm={deleteManyProvinces}
         />
       )}
 

@@ -92,6 +92,18 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     label: 'Quản lý, khai báo dữ liệu từ điển',
     menuLabel: 'Từ điển',
   },
+  /**
+   * KHÔNG có tài liệu `docs/srs/[CODE] ...` cho chức năng này — `ucCode` trỏ tới
+   * `docs/prd/fr/FR-053.md` thay vì thư mục `docs/srs/` như sáu mục còn lại. Xem
+   * đầu file `Fr053NgayNghiView.tsx` để rõ vì sao vẫn đăng ký ở đây được.
+   */
+  {
+    code: 'uc_fr_053',
+    slug: 'fr-053',
+    ucCode: 'FR-053',
+    label: 'Quản lý khai báo thông tin ngày nghỉ',
+    menuLabel: 'Ngày nghỉ',
+  },
 ] as const;
 
 /** Màn hình mặc định khi vào thẳng `/ims` — mục đầu tiên của menu. */

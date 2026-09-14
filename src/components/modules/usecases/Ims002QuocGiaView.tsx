@@ -3,17 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
 import {
   BTN_PRIMARY,
+  BULK_CHECKBOX_CLASS,
+  BulkActionBar,
   CatalogPage,
   CatalogToolbar,
   ColumnSpec,
   ConfirmDeleteDialog,
+  ConfirmDeleteManyDialog,
   EmptyRow,
   SortState,
   SortableTh,
@@ -22,6 +25,7 @@ import {
   TH_CLASS,
   TablePager,
   ToastStack,
+  useBulkSelection,
   useColumnVisibility,
   useToasts,
 } from './catalogUi';
@@ -92,7 +96,7 @@ const searchFields = (row: CountryRow) => [
 const COLUMNS: readonly ColumnSpec[] = [
   { key: 'stt', label: 'STT' },
   { key: 'code', label: 'Mã' },
-  { key: 'name', label: 'Giá trị' },
+  { key: 'name', label: 'Tên' },
   { key: 'description', label: 'Mô tả' },
   { key: 'status', label: 'Trạng thái' },
 ];
@@ -118,6 +122,17 @@ export const Ims002QuocGiaView: React.FC = () => {
   const { toasts, pushToast } = useToasts();
 
   const columns = useColumnVisibility(COLUMNS);
+
+  /**
+   * Chọn nhiều dòng để xóa hàng loạt (theo file mẫu, không có trong SRS).
+   *
+   * `activeRows` là tập bản ghi chưa xóa mềm — hook tự rớt id khỏi lựa chọn khi
+   * dòng đó bị xóa (kể cả xóa bằng nút Sửa/Xóa của từng dòng, không chỉ khi xóa
+   * hàng loạt).
+   */
+  const activeCountries = useMemo(() => countries.filter((r) => r.deleteFlg === 0), [countries]);
+  const bulk = useBulkSelection(activeCountries);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   /* ------------------------------------------------------------ thao tác */
 
@@ -169,6 +184,20 @@ export const Ims002QuocGiaView: React.FC = () => {
     pushToast('danger', `Đã xóa quốc gia “${row.countryNameVi}”`);
   };
 
+  /** Xóa mềm hàng loạt — cùng một luật với xóa từng dòng, chỉ áp cho nhiều id cùng lúc. */
+  const deleteManyCountries = () => {
+    const ids = bulk.selectedIds;
+    const now = new Date().toISOString();
+    setCountries((prev) =>
+      prev.map((r) =>
+        ids.has(r.id) ? { ...r, deleteFlg: 1, updatedBy: 'nqt.hnx', updatedDate: now } : r,
+      ),
+    );
+    pushToast('danger', `Đã xóa ${ids.size} bản ghi`);
+    bulk.clear();
+    setBulkDeleteConfirm(false);
+  };
+
   /**
    * Xuất File — CSV có BOM UTF-8 qua `lib/exportCsv.ts`, Excel mở trực tiếp là
    * đúng tiếng Việt.
@@ -214,11 +243,18 @@ export const Ims002QuocGiaView: React.FC = () => {
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
           onSearch={list.applySearch}
-          searchPlaceholder="Tìm kiếm Mã, Giá trị..."
+          searchPlaceholder="Tìm kiếm Mã, Tên..."
           status={list.draftStatus}
           onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          showImportExcel
+        />
+
+        <BulkActionBar
+          count={bulk.count}
+          onClear={bulk.clear}
+          onDelete={() => setBulkDeleteConfirm(true)}
         />
 
         {/* Bảng danh sách — các cột theo SRS Bảng 04. */}
@@ -226,6 +262,15 @@ export const Ims002QuocGiaView: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr>
+                <th scope="col" className={`${TH_CLASS} w-10 text-center`}>
+                  <input
+                    type="checkbox"
+                    checked={bulk.isAllSelected(list.pageRows)}
+                    onChange={() => bulk.toggleAll(list.pageRows)}
+                    aria-label="Chọn tất cả dòng trên trang này"
+                    className={BULK_CHECKBOX_CLASS}
+                  />
+                </th>
                 {columns.isVisible('stt') && (
                   <th scope="col" className={`${TH_CLASS} w-15 text-center`}>
                     STT
@@ -241,7 +286,7 @@ export const Ims002QuocGiaView: React.FC = () => {
                 )}
                 {columns.isVisible('name') && (
                   <SortableTh
-                    label="Giá trị"
+                    label="Tên"
                     sortKey="countryName"
                     sort={list.sort}
                     onSort={list.changeSort}
@@ -272,13 +317,22 @@ export const Ims002QuocGiaView: React.FC = () => {
             <tbody>
               {list.pageRows.length === 0 ? (
                 <EmptyRow
-                  colSpan={columns.visibleCount + 1}
+                  colSpan={columns.visibleCount + 2}
                   title="Không tìm thấy dữ liệu"
                   hint="Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm"
                 />
               ) : (
                 list.pageRows.map((row, idx) => (
                   <tr key={row.id} className="hover:bg-[#F8FAFC]">
+                    <td className={`${TD_CLASS} text-center`}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(row.id)}
+                        onChange={() => bulk.toggle(row.id)}
+                        aria-label={`Chọn ${row.countryNameVi}`}
+                        className={BULK_CHECKBOX_CLASS}
+                      />
+                    </td>
                     {columns.isVisible('stt') && (
                       <td className={`${TD_CLASS} text-center text-slate-500`}>
                         {list.startIdx + idx + 1}
@@ -374,6 +428,15 @@ export const Ims002QuocGiaView: React.FC = () => {
           note="Bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => deleteCountry(deleteTarget)}
+        />
+      )}
+
+      {bulkDeleteConfirm && (
+        <ConfirmDeleteManyDialog
+          count={bulk.count}
+          note="Các bản ghi được xóa mềm (DELETE_FLG = 1) và không còn hiển thị trong danh sách."
+          onCancel={() => setBulkDeleteConfirm(false)}
+          onConfirm={deleteManyCountries}
         />
       )}
 

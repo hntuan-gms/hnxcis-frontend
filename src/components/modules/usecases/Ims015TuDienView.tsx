@@ -4,12 +4,11 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
 import {
-  BTN_OUTLINE,
   BTN_PRIMARY,
   CatalogPage,
   CatalogToolbar,
@@ -152,7 +151,7 @@ const COLUMNS: readonly ColumnSpec[] = [
   { key: 'lovGroup', label: 'Loại' },
   { key: 'code', label: 'Mã' },
   { key: 'value', label: 'Giá trị' },
-  { key: 'order', label: 'Thứ tự' },
+  { key: 'order', label: 'Thứ tự sắp xếp' },
   { key: 'parent', label: 'Loại cha' },
   { key: 'description', label: 'Mô tả' },
   { key: 'status', label: 'Trạng thái' },
@@ -340,7 +339,7 @@ export const Ims015TuDienView: React.FC = () => {
       { header: 'Mã', value: (r: LookupValueRow) => r.code },
       { header: 'Giá trị', value: (r: LookupValueRow) => r.value },
       { header: 'Loại', value: (r: LookupValueRow) => r.lovGroup },
-      { header: 'Thứ tự', value: (r: LookupValueRow) => r.displayOrder ?? '' },
+      { header: 'Thứ tự sắp xếp', value: (r: LookupValueRow) => r.displayOrder ?? '' },
       { header: 'Loại cha', value: (r: LookupValueRow) => parentLabelOf(r.lookupParentId) ?? '' },
       { header: 'Mô tả', value: (r: LookupValueRow) => r.description },
       {
@@ -367,30 +366,10 @@ export const Ims015TuDienView: React.FC = () => {
           </>
         }
         actions={
-          <>
-            {/*
-              Import Excel: Bảng 05 yêu cầu nút này, nhưng nạp hàng loạt cần thư
-              viện đọc .xlsx và cần backend validate từng dòng trước khi ghi. Hiện
-              nút ở trạng thái disable để đúng đặc tả mà không giả vờ có chức năng.
-
-              Nút Export của Bảng 05 giờ nằm ở thanh công cụ bên dưới ("Xuất File")
-              cùng chỗ với sáu màn hình danh mục còn lại — một chức năng, một nút.
-            */}
-            <button
-              type="button"
-              disabled
-              title="Cần backend để đọc và validate file — chưa khả dụng ở giai đoạn UI tĩnh"
-              className={BTN_OUTLINE}
-            >
-              <Upload className="h-4 w-4" />
-              Import Excel
-            </button>
-
-            <button type="button" onClick={() => setFormTarget({ row: null })} className={BTN_PRIMARY}>
-              <Plus className="h-4 w-4" />
-              Thêm
-            </button>
-          </>
+          <button type="button" onClick={() => setFormTarget({ row: null })} className={BTN_PRIMARY}>
+            <Plus className="h-4 w-4" />
+            Thêm
+          </button>
         }
       >
         {/*
@@ -443,13 +422,13 @@ export const Ims015TuDienView: React.FC = () => {
           </label>
 
           <label className="flex items-center gap-2">
-            <span className="w-18 shrink-0 text-[13px] text-[#525252]">Thứ tự</span>
+            <span className="w-18 shrink-0 text-[13px] text-[#525252]">Thứ tự sắp xếp</span>
             <input
               type="number"
               min={0}
               value={draftCriteria.displayOrder}
               onChange={(e) => setCriteria('displayOrder', e.target.value)}
-              placeholder="Nhập thứ tự"
+              placeholder="Nhập thứ tự sắp xếp"
               className={INPUT_CLASS}
             />
           </label>
@@ -525,7 +504,7 @@ export const Ims015TuDienView: React.FC = () => {
                 )}
                 {columns.isVisible('order') && (
                   <SortableTh
-                    label="Thứ tự"
+                    label="Thứ tự sắp xếp"
                     sortKey="displayOrder"
                     sort={list.sort}
                     onSort={list.changeSort}

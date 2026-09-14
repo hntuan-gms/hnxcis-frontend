@@ -17,10 +17,12 @@ import {
   Inbox,
   Search,
   SlidersHorizontal,
+  Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 
-import { Flag, STATUS_OPTIONS } from './catalogTypes';
+import { CatalogRecord, Flag, STATUS_OPTIONS } from './catalogTypes';
 
 /**
  * Các thành phần giao diện dùng chung cho màn hình quản lý danh mục.
@@ -91,6 +93,8 @@ export const BTN_BASE =
 export const BTN_PRIMARY = `${BTN_BASE} border-transparent bg-[linear-gradient(90deg,#003F27_0%,#00663D_33%,#009F5F_66%,#22AF73_100%)] text-white hover:brightness-110 shadow-xs`;
 export const BTN_OUTLINE = `${BTN_BASE} border-slate-300 bg-white text-[#292929] hover:bg-slate-50`;
 export const BTN_DANGER = `${BTN_BASE} border-transparent bg-[#802423] text-white hover:bg-[#802423]`;
+/** `.btn-ghost` của file mẫu — dùng cho hành động phụ như "Bỏ chọn". */
+export const BTN_GHOST = `${BTN_BASE} border-transparent bg-transparent text-[#525252] hover:bg-slate-100`;
 
 /* ------------------------------------------------------------------ badge */
 
@@ -245,20 +249,25 @@ export function useColumnVisibility(specs: readonly ColumnSpec[]): ColumnVisibil
  * Cột cuối cùng còn hiện thì bị chặn không cho tắt: một bảng chỉ còn cột "Hành
  * động" là một bảng vô nghĩa.
  */
-export const ColumnsButton: React.FC<{ columns: ColumnVisibility }> = ({ columns }) => {
-  const [open, setOpen] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
-
-  // Bấm ra ngoài hoặc Esc thì đóng — menu này không có lớp phủ nên nếu không tự
-  // đóng, nó sẽ nằm chắn trên bảng suốt cả phiên làm việc.
+/**
+ * Đóng một menu thả xuống khi bấm ra ngoài hoặc nhấn Esc.
+ *
+ * Dùng chung cho mọi dropdown không có lớp phủ (`Columns`, lọc trạng thái...) —
+ * nếu không tự đóng, chúng sẽ nằm chắn trên bảng suốt cả phiên làm việc.
+ */
+export function useCloseOnOutsideOrEscape(
+  open: boolean,
+  onClose: () => void,
+  ref: React.RefObject<HTMLElement>,
+) {
   useEffect(() => {
     if (!open) return undefined;
 
     const onPointerDown = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') onClose();
     };
 
     document.addEventListener('mousedown', onPointerDown);
@@ -267,7 +276,14 @@ export const ColumnsButton: React.FC<{ columns: ColumnVisibility }> = ({ columns
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, onClose, ref]);
+}
+
+export const ColumnsButton: React.FC<{ columns: ColumnVisibility }> = ({ columns }) => {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useCloseOnOutsideOrEscape(open, () => setOpen(false), boxRef);
 
   return (
     <div ref={boxRef} className="relative">
@@ -279,7 +295,7 @@ export const ColumnsButton: React.FC<{ columns: ColumnVisibility }> = ({ columns
         className={BTN_OUTLINE}
       >
         <SlidersHorizontal className="h-4 w-4" />
-        Columns
+        Cột
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
 
@@ -325,6 +341,75 @@ export const ColumnsButton: React.FC<{ columns: ColumnVisibility }> = ({ columns
 /** Giá trị của ô lọc trạng thái; `'all'` là không lọc. */
 export type StatusValue = 'all' | Flag;
 
+/**
+ * Nút + menu lọc trạng thái, thay cho `<select>` thường.
+ *
+ * Bản dịch của `.status-select-btn`/`.status-menu` trong file mẫu: mỗi lựa chọn
+ * có một chấm màu (xám/xanh/vàng) để nhận trạng thái ngay trong menu, không phải
+ * đợi đọc chữ. Về hành vi thì tương đương hệt `<select>` cũ — đổi là lọc ngay,
+ * không cần bấm thêm nút nào — nên các màn hình gọi `CatalogToolbar` không phải
+ * đổi gì khi component này thay thế `<select>` bên trong.
+ */
+const STATUS_FILTER_OPTIONS: ReadonlyArray<{ value: StatusValue; label: string; dotClass: string }> = [
+  { value: 'all', label: 'Tất cả trạng thái', dotClass: 'bg-slate-300' },
+  ...STATUS_OPTIONS.map((opt) => ({
+    value: opt.value,
+    label: opt.label,
+    dotClass: opt.value === 1 ? 'bg-[#1E7A42]' : 'bg-[#B9691B]',
+  })),
+];
+
+const StatusFilterDropdown: React.FC<{ value: StatusValue; onChange: (value: StatusValue) => void }> = ({
+  value,
+  onChange,
+}) => {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useCloseOnOutsideOrEscape(open, () => setOpen(false), boxRef);
+
+  const current = STATUS_FILTER_OPTIONS.find((o) => o.value === value) ?? STATUS_FILTER_OPTIONS[0];
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label="Lọc theo trạng thái"
+        className="inline-flex h-9 items-center justify-between gap-2.5 rounded-lg border border-slate-300 bg-white px-3 text-[13px] text-[#292929] hover:border-slate-400"
+      >
+        {current.label}
+        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 z-30 mt-1.5 w-50 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] ${
+                opt.value === value
+                  ? 'bg-[#E6F4EA] font-medium text-[#1E7A42]'
+                  : 'text-[#292929] hover:bg-slate-50'
+              }`}
+            >
+              <span className={`h-1.75 w-1.75 shrink-0 rounded-full ${opt.dotClass}`} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface CatalogToolbarProps {
   /**
    * Ô từ khóa. Bỏ trống ba prop này khi màn hình không dùng một ô tìm kiếm gộp
@@ -340,6 +425,16 @@ interface CatalogToolbarProps {
   onStatus: (value: StatusValue) => void;
   columns: ColumnVisibility;
   onExport: () => void;
+  /**
+   * Hiện nút "Nhập Excel" — LUÔN Ở TRẠNG THÁI MỜ.
+   *
+   * Nạp hàng loạt cần thư viện đọc .xlsx và cần backend validate từng dòng
+   * trước khi ghi — chưa có ở giai đoạn UI tĩnh này. Bốn màn hình danh mục dùng
+   * chung đúng một nút mờ với đúng một câu giải thích, thay vì màn hình giả vờ
+   * đọc được file (tự phân tích .xlsx ngay trên trình duyệt mà không ai validate
+   * dữ liệu) trong khi ba màn khác lại không có gì.
+   */
+  showImportExcel?: boolean;
   /** Bộ lọc riêng của màn hình, xếp cùng hàng bên trái (VD: Tỉnh/Thành). */
   children?: React.ReactNode;
 }
@@ -363,6 +458,7 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
   onStatus,
   columns,
   onExport,
+  showImportExcel,
   children,
 }) => (
   <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
@@ -394,25 +490,23 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
 
       {children}
 
-      <select
-        value={String(status)}
-        onChange={(e) =>
-          onStatus(e.target.value === 'all' ? 'all' : (Number(e.target.value) as Flag))
-        }
-        aria-label="Lọc theo trạng thái"
-        className={`${SELECT_CLASS} w-auto`}
-      >
-        <option value="all">Tất cả trạng thái</option>
-        {STATUS_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <StatusFilterDropdown value={status} onChange={onStatus} />
     </div>
 
     <div className="flex shrink-0 items-center gap-2.5">
       <ColumnsButton columns={columns} />
+
+      {showImportExcel && (
+        <button
+          type="button"
+          disabled
+          title="Cần backend để đọc và validate file — chưa khả dụng ở giai đoạn UI tĩnh"
+          className={BTN_OUTLINE}
+        >
+          <Upload className="h-4 w-4" />
+          Nhập Excel
+        </button>
+      )}
 
       <button type="button" onClick={onExport} className={BTN_OUTLINE}>
         <Download className="h-4 w-4" />
@@ -682,6 +776,19 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   );
 };
 
+/** Thân popup xác nhận xóa — dùng chung cho xóa một dòng và xóa nhiều dòng. */
+const ConfirmDeleteBody: React.FC<{ message: React.ReactNode; note: string }> = ({ message, note }) => (
+  <div className="flex gap-3.5 px-5 pt-5 pb-1.5">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#802423]/10 text-[#802423]">
+      <AlertTriangle className="h-5 w-5" />
+    </div>
+    <div>
+      <div className="mb-1 text-sm font-semibold text-[#292929]">{message}</div>
+      <div className="text-[13px] text-slate-500">{note}</div>
+    </div>
+  </div>
+);
+
 interface ConfirmDeleteDialogProps {
   /** Tên bản ghi, để người dùng thấy rõ mình đang xóa cái gì. */
   recordLabel: string;
@@ -711,19 +818,142 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
       </>
     }
   >
-    <div className="flex gap-3.5 px-5 pt-5 pb-1.5">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#802423]/10 text-[#802423]">
-        <AlertTriangle className="h-5 w-5" />
-      </div>
-      <div>
-        <div className="mb-1 text-sm font-semibold text-[#292929]">
-          Bạn có chắc chắn muốn xóa “{recordLabel}”?
-        </div>
-        <div className="text-[13px] text-slate-500">{note}</div>
-      </div>
-    </div>
+    <ConfirmDeleteBody message={<>Bạn có chắc chắn muốn xóa “{recordLabel}”?</>} note={note} />
   </ModalShell>
 );
+
+interface ConfirmDeleteManyDialogProps {
+  /** Số dòng đang được chọn để xóa. */
+  count: number;
+  note: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * Xác nhận xóa hàng loạt — cùng khung với `ConfirmDeleteDialog`, chỉ khác câu
+ * hỏi (số lượng thay vì tên một bản ghi). Theo đúng file mẫu: xóa nhiều dùng lại
+ * y hệt popup xóa một dòng, không phải một luồng riêng.
+ */
+export const ConfirmDeleteManyDialog: React.FC<ConfirmDeleteManyDialogProps> = ({
+  count,
+  note,
+  onCancel,
+  onConfirm,
+}) => (
+  <ModalShell
+    title="Xóa bản ghi"
+    onClose={onCancel}
+    width="confirm"
+    footer={
+      <>
+        <button type="button" className={BTN_OUTLINE} onClick={onCancel}>
+          Hủy
+        </button>
+        <button type="button" className={BTN_DANGER} onClick={onConfirm}>
+          Xóa
+        </button>
+      </>
+    }
+  >
+    <ConfirmDeleteBody
+      message={`Bạn có chắc chắn muốn xóa ${count} bản ghi đã chọn?`}
+      note={note}
+    />
+  </ModalShell>
+);
+
+/* --------------------------------------------------------- chọn hàng loạt */
+
+/**
+ * Trạng thái chọn nhiều dòng để xóa hàng loạt, theo `.bulk-bar` của file mẫu.
+ *
+ * `activeRows` phải là tập bản ghi CÒN HỢP LỆ để chọn (đã lọc `deleteFlg === 0`
+ * ở màn hình gọi) — hook tự rớt khỏi lựa chọn những id không còn trong tập này,
+ * để thanh hành động không đếm nhầm dòng vừa bị xóa mềm bởi nút Xóa từng dòng.
+ *
+ * "Chọn tất cả" chỉ áp cho TRANG ĐANG XEM, đúng hành vi của file mẫu — không
+ * phải toàn bộ kết quả lọc, nên `isAllSelected`/`toggleAll` nhận `pageRows` làm
+ * tham số thay vì tự biết toàn bộ danh sách.
+ */
+export interface BulkSelection {
+  readonly count: number;
+  readonly selectedIds: ReadonlySet<number>;
+  isSelected(id: number): boolean;
+  toggle(id: number): void;
+  isAllSelected(pageRows: readonly { id: number }[]): boolean;
+  toggleAll(pageRows: readonly { id: number }[]): void;
+  clear(): void;
+}
+
+export function useBulkSelection<T extends CatalogRecord>(activeRows: readonly T[]): BulkSelection {
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(activeRows.map((r) => r.id));
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [activeRows]);
+
+  return {
+    count: selected.size,
+    selectedIds: selected,
+    isSelected: (id) => selected.has(id),
+    toggle: (id) =>
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    isAllSelected: (pageRows) => pageRows.length > 0 && pageRows.every((r) => selected.has(r.id)),
+    toggleAll: (pageRows) =>
+      setSelected((prev) => {
+        const allSelected = pageRows.length > 0 && pageRows.every((r) => prev.has(r.id));
+        const next = new Set(prev);
+        pageRows.forEach((r) => (allSelected ? next.delete(r.id) : next.add(r.id)));
+        return next;
+      }),
+    clear: () => setSelected(new Set()),
+  };
+}
+
+/** Checkbox đầu bảng — đặt trong `<th>`/`<td>` của màn hình gọi. */
+export const BULK_CHECKBOX_CLASS = 'h-4 w-4 cursor-pointer accent-[#008A4B]';
+
+interface BulkActionBarProps {
+  count: number;
+  onClear: () => void;
+  onDelete: () => void;
+}
+
+/**
+ * Thanh "Đã chọn N mục" — theo `.bulk-bar` của file mẫu. Tự ẩn khi chưa chọn
+ * dòng nào, giống cách `ToastStack` tự ẩn khi rỗng — màn hình gọi không cần tự
+ * kiểm tra `count > 0` trước khi render.
+ */
+export const BulkActionBar: React.FC<BulkActionBarProps> = ({ count, onClear, onDelete }) => {
+  if (count === 0) return null;
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2.5 rounded-lg border border-[#22AF73] bg-[#E6F4EA] px-3.5 py-2 text-[13px] text-[#1E7A42]">
+      <span>
+        Đã chọn <b className="font-bold">{count}</b> mục
+      </span>
+      <div className="flex-1" />
+      <button type="button" onClick={onClear} className={BTN_GHOST}>
+        Bỏ chọn
+      </button>
+      <button type="button" onClick={onDelete} className={BTN_DANGER}>
+        <Trash2 className="h-4 w-4" />
+        Xóa đã chọn
+      </button>
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------- field */
 
