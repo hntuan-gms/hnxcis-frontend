@@ -21,6 +21,12 @@ import {
   Submission,
 } from '../../types/hnx';
 import { StatusBadge } from '../common/StatusBadge';
+import {
+  CNS_NEWS_ROUTES,
+  DEFAULT_CNS_TAB,
+  cnsPathForTab,
+  cnsTabFromPath,
+} from '../../lib/cnsRoutes';
 import { INITIAL_CATALOGS } from '../../data/mockData';
 import hnxLogo from '../../assets/hnx-logo.png';
 
@@ -39,26 +45,23 @@ interface NewsTab {
   match: (sub: Submission) => boolean;
 }
 
-const NEWS_TABS: NewsTab[] = [
-  { key: 'today', label: 'Tin trong ngày', match: () => true },
-  { key: 'fs', label: 'Báo cáo tài chính', match: (s) => s.newsGroupCode === 'PERIODIC' },
-  { key: 'dividend', label: 'Trả cổ tức', match: (s) => s.titleVi.toLowerCase().includes('cổ tức') },
-  {
-    key: 'agm',
-    label: 'Đại hội cổ đông',
-    match: (s) => s.titleVi.toLowerCase().includes('đại hội'),
-  },
-  {
-    key: 'bond_issue',
-    label: 'Phát hành trái phiếu',
-    match: (s) => s.newsGroupCode === 'BOND' && s.titleVi.toLowerCase().includes('phát hành'),
-  },
-  {
-    key: 'bond_payment',
-    label: 'Thanh toán trái phiếu',
-    match: (s) => s.newsGroupCode === 'BOND' && s.titleVi.toLowerCase().includes('thanh toán'),
-  },
-];
+/** Bộ lọc tin của từng mục, tra theo `key` khai báo trong `cnsRoutes.ts`. Khoá
+ * và nhãn nằm bên đó vì chúng còn quyết định URL `/hnxcns/<ma-uc>`; ở đây chỉ
+ * còn phần thuần nghiệp vụ là điều kiện lọc. */
+const TAB_MATCHERS: Record<string, (sub: Submission) => boolean> = {
+  today: () => true,
+  fs: (s) => s.newsGroupCode === 'PERIODIC',
+  dividend: (s) => s.titleVi.toLowerCase().includes('cổ tức'),
+  agm: (s) => s.titleVi.toLowerCase().includes('đại hội'),
+  bond_issue: (s) => s.newsGroupCode === 'BOND' && s.titleVi.toLowerCase().includes('phát hành'),
+  bond_payment: (s) => s.newsGroupCode === 'BOND' && s.titleVi.toLowerCase().includes('thanh toán'),
+};
+
+const NEWS_TABS: NewsTab[] = CNS_NEWS_ROUTES.map((route) => ({
+  key: route.key,
+  label: route.label,
+  match: TAB_MATCHERS[route.key] ?? (() => true),
+}));
 
 /** Nhãn ngành nghề hiển thị dưới tên doanh nghiệp — đọc lại danh mục ngành đã
  * có (`INITIAL_CATALOGS`) qua `organization.industryCode`, không phải field mới. */
@@ -189,8 +192,35 @@ export const PublicCorporateNews: React.FC<PublicCorporateNewsProps> = ({
   const [selectedBoard, setSelectedBoard] = useState<string>('ALL');
   const [selectedGroup, setSelectedGroup] = useState<string>('ALL');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<string>(NEWS_TABS[0].key);
+  /**
+   * Mục tin đang mở đọc từ URL chứ không chỉ từ state: mỗi mục có đường dẫn
+   * riêng `/hnxcns/<ma-uc>` (xem `cnsRoutes.ts`) nên gõ thẳng hay gửi link tới
+   * một mục đều vào đúng mục đó. Vào `/hnxcns` trống thì rơi về mục đầu tiên.
+   */
+  const [activeTab, setActiveTab] = useState<string>(() =>
+    (typeof window === 'undefined' ? null : cnsTabFromPath(window.location.pathname)) ??
+    DEFAULT_CNS_TAB
+  );
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+
+  /** Nút Back/Forward của trình duyệt phải kéo mục tin đi theo. */
+  useEffect(() => {
+    const onPop = () => setActiveTab(cnsTabFromPath(window.location.pathname) ?? DEFAULT_CNS_TAB);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  /**
+   * Bấm một mục đổi cả nội dung lẫn đường dẫn. Dùng pushState để nút Back quay
+   * lại đúng mục vừa xem thay vì rời hẳn trang tin.
+   */
+  const changeTab = (key: string) => {
+    setActiveTab(key);
+    const nextPath = cnsPathForTab(key);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath + window.location.search);
+    }
+  };
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -441,7 +471,7 @@ export const PublicCorporateNews: React.FC<PublicCorporateNewsProps> = ({
               {NEWS_TABS.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => changeTab(tab.key)}
                   className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
                     activeTab === tab.key
                       ? 'bg-[#12573A] text-white shadow-xs'

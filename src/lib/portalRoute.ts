@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { cnsTabFromPath } from './cnsRoutes';
 import { imsModuleFromPath } from './imsRoutes';
 
 /**
@@ -84,11 +85,14 @@ export function usePortalRoute(): { portal: Portal; goToPortal: (next: Portal) =
    * trang trước đó chứ không kẹt lại ở chính /hnxcns.
    *
    * Ngoại lệ: `/ims/<ma-uc>` là đường dẫn thật của một chức năng IMS (xem
-   * `imsRoutes.ts`), không phải đường dẫn lạ — giữ nguyên, nếu không mọi deep
-   * link tới màn hình danh mục sẽ bị đẩy về `/ims` ngay khi tải trang.
+   * `imsRoutes.ts`) và `/hnxcns/<ma-uc>` là đường dẫn thật của một mục tin (xem
+   * `cnsRoutes.ts`), không phải đường dẫn lạ — giữ nguyên, nếu không mọi deep
+   * link tới màn hình danh mục hay mục tin sẽ bị đẩy về đường dẫn gốc của cổng
+   * ngay khi tải trang.
    */
   useEffect(() => {
     if (imsModuleFromPath(window.location.pathname)) return;
+    if (cnsTabFromPath(window.location.pathname)) return;
 
     const expected = PORTAL_PATH[portalFromPath(window.location.pathname)];
     if (window.location.pathname !== expected) {
