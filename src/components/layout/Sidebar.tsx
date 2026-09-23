@@ -49,6 +49,7 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
+  Folder,
 } from 'lucide-react';
 
 /** Hai chữ cái đầu của tên, cho avatar tròn ở chân sidebar. */
@@ -67,6 +68,9 @@ interface NavItem {
 }
 import { UserAccount, UserRoleCode } from '../../types/hnx';
 import { IMS_USE_CASES } from '../../lib/imsRoutes';
+
+const CATALOG_USE_CASES = IMS_USE_CASES.filter((uc) => uc.group === 'catalog');
+const DOSSIER_USE_CASES = IMS_USE_CASES.filter((uc) => uc.group === 'dossier');
 import { getRoleLabel } from '../../data/roleCatalog';
 import hnxLogo from '../../assets/hnx-logo.png';
 
@@ -180,6 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
    * cổng public, nếu khai báo state sau đó thì số hook sẽ lệch khi đổi cổng.
    */
   const [catalogOpen, setCatalogOpen] = useState(true);
+  const [dossierOpen, setDossierOpen] = useState(true);
 
   if (activePortal === 'public') {
     return null;
@@ -446,7 +451,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {catalogOpen && (
             <div className="mt-0.5 mb-2 pl-3.5">
-              {IMS_USE_CASES.map((uc) => (
+              {CATALOG_USE_CASES.map((uc) => (
                 <button
                   key={uc.code}
                   onClick={() => pickModule(uc.code)}
@@ -501,6 +506,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
         </div>
+
+        {/*
+          Nhóm "Quản lý hồ sơ" — theo `NAV_GROUPS[1]` của
+          `docs/quan-ly-danh-muc_80.html`. Chỉ render ở nhánh /ims này; nhánh
+          /icds phía trên không có, đúng yêu cầu BA "hồ sơ chỉ ở cổng nội bộ".
+          Class của nhãn nhóm, nhóm con và mục con giữ y hệt nhóm Danh mục.
+        */}
+        {DOSSIER_USE_CASES.length > 0 && (
+          <div className="space-y-0.5">
+            <div className="flex select-none items-center gap-2 rounded-lg px-2.5 py-2.25 text-[13px] font-medium text-white/92">
+              <Folder className="h-4 w-4 shrink-0 opacity-90" />
+              <span>Quản lý hồ sơ</span>
+              <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-90" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDossierOpen((open) => !open)}
+              aria-expanded={dossierOpen}
+              className="flex w-full items-center gap-2 rounded-lg py-2 pr-2.5 pl-5 text-[13px] font-medium text-white/95 hover:bg-white/6"
+            >
+              <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-current opacity-85" />
+              <span>Hồ sơ</span>
+              {dossierOpen ? (
+                <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 opacity-85" />
+              ) : (
+                <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-85" />
+              )}
+            </button>
+
+            {dossierOpen && (
+              <div className="mt-0.5 mb-2 pl-3.5">
+                {DOSSIER_USE_CASES.map((uc) => (
+                  <button
+                    key={uc.code}
+                    onClick={() => pickModule(uc.code)}
+                    title={`${uc.ucCode} — ${uc.label}`}
+                    className={`my-px flex w-full items-center gap-2.5 rounded-lg py-2 pr-2.5 pl-5 text-left text-[13px] transition-colors duration-[120ms] ease-[ease] ${
+                      activeModule === uc.code
+                        ? 'bg-white/16 font-medium text-white'
+                        : 'text-white/80 hover:bg-white/8 hover:text-white'
+                    }`}
+                  >
+                    <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-current opacity-70" />
+                    <span className="leading-tight">{uc.menuLabel}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {SHOW_LEGACY_IMS_NAV && (
           <>

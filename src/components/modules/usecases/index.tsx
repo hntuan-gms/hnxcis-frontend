@@ -14,6 +14,10 @@ import { Ims006PhongBanView } from './Ims006PhongBanView';
 import { Ims008LoaiHinhDnView } from './Ims008LoaiHinhDnView';
 import { Ims015TuDienView } from './Ims015TuDienView';
 import { Fr053NgayNghiView } from './Fr053NgayNghiView';
+import { HsToChucLienQuanView } from './HsToChucLienQuanView';
+import { HsToChucPhatHanhView } from './dossier/HsToChucPhatHanhView';
+import { HsNhaDauTuView } from './dossier/HsNhaDauTuView';
+import { HsDanhSachTraiPhieuView } from './dossier/HsDanhSachTraiPhieuView';
 
 /**
  * Bảng tra mã module → view, cho khối chức năng `uc_*` của cổng IMS.
@@ -22,7 +26,15 @@ import { Fr053NgayNghiView } from './Fr053NgayNghiView';
  * (`imsRoutes.ts` khai báo route, file này khai báo view) thay vì chèn thêm một
  * nhánh `activeModule === ...` vào giữa hàng trăm dòng của App.tsx.
  */
-const VIEWS: Record<string, React.ComponentType> = {
+/**
+ * `onNavigate` đổi sang màn `uc_*` khác (kèm cập nhật URL). Chỉ nhóm "Quản lý
+ * hồ sơ" dùng — ba màn đó dẫn chéo sang nhau; các màn danh mục bỏ qua prop này.
+ */
+export interface UseCaseViewProps {
+  onNavigate?: (moduleCode: string) => void;
+}
+
+const VIEWS: Record<string, React.ComponentType<UseCaseViewProps>> = {
   uc_ims_002: Ims002QuocGiaView,
   uc_ims_003: Ims003TinhThanhView,
   uc_ims_004: Ims004XaPhuongView,
@@ -31,9 +43,13 @@ const VIEWS: Record<string, React.ComponentType> = {
   uc_ims_008: Ims008LoaiHinhDnView,
   uc_ims_015: Ims015TuDienView,
   uc_fr_053: Fr053NgayNghiView,
+  uc_hs_tcph: HsToChucPhatHanhView,
+  uc_hs_ndt: HsNhaDauTuView,
+  uc_hs_dstp: HsDanhSachTraiPhieuView,
+  uc_hs_tclq: HsToChucLienQuanView,
 };
 
-interface UseCaseRouterProps {
+interface UseCaseRouterProps extends UseCaseViewProps {
   activeModule: string;
 }
 
@@ -41,7 +57,7 @@ interface UseCaseRouterProps {
  * Mã lạ rơi về màn hình mặc định thay vì render trắng — người dùng gõ sai URL
  * vẫn thấy một trang dùng được.
  */
-export const UseCaseRouter: React.FC<UseCaseRouterProps> = ({ activeModule }) => {
+export const UseCaseRouter: React.FC<UseCaseRouterProps> = ({ activeModule, onNavigate }) => {
   const View = VIEWS[activeModule] ?? VIEWS[DEFAULT_IMS_MODULE];
-  return <View />;
+  return <View onNavigate={onNavigate} />;
 };

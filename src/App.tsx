@@ -567,7 +567,9 @@ export default function App() {
   const imsContent = (
     <>
       {/* Các chức năng đã có SRS — xem `lib/imsRoutes.ts`. */}
-      {isImsUseCaseModule(activeModule) && <UseCaseRouter activeModule={activeModule} />}
+      {isImsUseCaseModule(activeModule) && (
+        <UseCaseRouter activeModule={activeModule} onNavigate={changeModule} />
+      )}
 
       {activeModule === 'dashboard' && (
         <DashboardModule

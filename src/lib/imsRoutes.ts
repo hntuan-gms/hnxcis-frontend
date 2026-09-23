@@ -40,7 +40,14 @@ export interface ImsUseCaseRoute {
    * Lấy đúng `navLabel` của file mẫu `docs/quan-ly-danh-muc_2.html`.
    */
   readonly menuLabel: string;
+  /**
+   * Nhóm menu trên sidebar. `dossier` = "Quản lý hồ sơ" — theo BA, nhóm này CHỈ
+   * có ở /ims, không xuất hiện ở /icds hay /news.
+   */
+  readonly group: ImsMenuGroup;
 }
+
+export type ImsMenuGroup = 'catalog' | 'dossier';
 
 export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
   {
@@ -49,6 +56,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-002',
     label: 'Quản lý danh mục Quốc gia',
     menuLabel: 'Quốc gia',
+    group: 'catalog',
   },
   {
     code: 'uc_ims_003',
@@ -56,6 +64,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-003',
     label: 'Quản lý danh mục Tỉnh thành',
     menuLabel: 'Tỉnh thành',
+    group: 'catalog',
   },
   {
     code: 'uc_ims_004',
@@ -63,6 +72,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-004',
     label: 'Quản lý danh mục Xã phường',
     menuLabel: 'Phường / Xã',
+    group: 'catalog',
   },
   {
     code: 'uc_ims_006',
@@ -70,6 +80,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-006',
     label: 'Quản lý danh mục Phòng ban',
     menuLabel: 'Phòng ban',
+    group: 'catalog',
   },
   {
     code: 'uc_hnx_srs',
@@ -77,6 +88,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'HNX-SRS',
     label: 'Quản lý Chức vụ',
     menuLabel: 'Chức vụ',
+    group: 'catalog',
   },
   {
     code: 'uc_ims_008',
@@ -84,6 +96,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-008',
     label: 'Quản lý danh mục Loại hình doanh nghiệp',
     menuLabel: 'Loại hình doanh nghiệp',
+    group: 'catalog',
   },
   {
     code: 'uc_ims_015',
@@ -91,6 +104,7 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'IMS-015',
     label: 'Quản lý, khai báo dữ liệu từ điển',
     menuLabel: 'Từ điển',
+    group: 'catalog',
   },
   /**
    * KHÔNG có tài liệu `docs/srs/[CODE] ...` cho chức năng này — `ucCode` trỏ tới
@@ -103,6 +117,49 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     ucCode: 'FR-053',
     label: 'Quản lý khai báo thông tin ngày nghỉ',
     menuLabel: 'Ngày nghỉ',
+    group: 'catalog',
+  },
+  /**
+   * Nhóm "Quản lý hồ sơ" — KHÔNG có SRS/FR. `ucCode` là mã tạm, dựng theo
+   * `docs/quan-ly-danh-muc_80.html` (`MODULES.hosotcph`, `nhadautu`,
+   * `danhsachtraiphieu`, `tochuclienquan`). Đổi sang mã UC chính thức khi BA
+   * phát hành tài liệu.
+   *
+   * Chạy SONG SONG với `ListingModule` / `OwnershipModule` / `BondModule` cũ
+   * (đang ẩn menu qua `SHOW_LEGACY_IMS_NAV`) — không dùng chung dữ liệu, gỡ bên
+   * nào cũng không ảnh hưởng bên còn lại.
+   */
+  {
+    code: 'uc_hs_tcph',
+    slug: 'to-chuc-phat-hanh',
+    ucCode: 'HS-TCPH',
+    label: 'Quản lý hồ sơ Tổ chức phát hành (TCPH)',
+    menuLabel: 'Tổ chức phát hành',
+    group: 'dossier',
+  },
+  {
+    code: 'uc_hs_ndt',
+    slug: 'nha-dau-tu',
+    ucCode: 'HS-NDT',
+    label: 'Quản lý hồ sơ Nhà đầu tư',
+    menuLabel: 'Nhà đầu tư',
+    group: 'dossier',
+  },
+  {
+    code: 'uc_hs_dstp',
+    slug: 'danh-sach-trai-phieu',
+    ucCode: 'HS-DSTP',
+    label: 'Danh sách trái phiếu riêng lẻ (tổng hợp mọi TCPH)',
+    menuLabel: 'Danh sách trái phiếu',
+    group: 'dossier',
+  },
+  {
+    code: 'uc_hs_tclq',
+    slug: 'to-chuc-lien-quan',
+    ucCode: 'HS-TCLQ',
+    label: 'Quản lý hồ sơ Tổ chức liên quan (TCĐT, BL, ĐLPH)',
+    menuLabel: 'Tổ chức liên quan',
+    group: 'dossier',
   },
 ] as const;
 

@@ -420,9 +420,12 @@ interface CatalogToolbarProps {
   searchPlaceholder?: string;
   /** Chạy tìm kiếm — gọi khi nhấn Enter hoặc bấm vào kính lúp. */
   onSearch?: () => void;
-  /** Ô lọc trạng thái. Đổi là lọc ngay, không cần bấm thêm nút nào. */
-  status: StatusValue;
-  onStatus: (value: StatusValue) => void;
+  /**
+   * Ô lọc trạng thái. Đổi là lọc ngay, không cần bấm thêm nút nào. Bỏ trống cả
+   * hai prop khi bản ghi không có trạng thái hoạt động (Hồ sơ Nhà đầu tư).
+   */
+  status?: StatusValue;
+  onStatus?: (value: StatusValue) => void;
   columns: ColumnVisibility;
   onExport: () => void;
   /**
@@ -490,7 +493,7 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
 
       {children}
 
-      <StatusFilterDropdown value={status} onChange={onStatus} />
+      {status !== undefined && onStatus && <StatusFilterDropdown value={status} onChange={onStatus} />}
     </div>
 
     <div className="flex shrink-0 items-center gap-2.5">
@@ -546,9 +549,12 @@ const CATALOG_ROOT = 'Quản lý danh mục';
  * bản đặt ở `<nav>` để chặng đầu và dấu `›` cùng tông; chỉ chặng cuối ghi đè —
  * đúng cách file mẫu dựng bằng `.breadcrumb` + `.current`.
  */
-export const CatalogBreadcrumb: React.FC<{ current: string }> = ({ current }) => (
+export const CatalogBreadcrumb: React.FC<{ current: string; root?: string }> = ({
+  current,
+  root = CATALOG_ROOT,
+}) => (
   <nav aria-label="Đường dẫn" className="mb-4 flex items-center text-xs text-slate-500">
-    <span>{CATALOG_ROOT}</span>
+    <span>{root}</span>
     {/* `aria-hidden`: dấu trang trí, trình đọc màn hình không cần đọc "›". */}
     <span aria-hidden="true" className="mx-1.5">
       ›
@@ -569,6 +575,8 @@ interface CatalogPageProps {
    * breadcrumb; hai chỗ đó luôn phải đọc giống nhau vì cùng chỉ một màn hình.
    */
   catalogName: string;
+  /** Chặng đầu breadcrumb — nhóm menu chứa màn hình. Mặc định "Quản lý danh mục". */
+  rootLabel?: string;
   heading: string;
   /** Câu mô tả dưới tiêu đề. Nhận ReactNode để màn hình gắn thêm chip kỹ thuật. */
   subtitle: React.ReactNode;
@@ -586,6 +594,7 @@ interface CatalogPageProps {
  */
 export const CatalogPage: React.FC<CatalogPageProps> = ({
   catalogName,
+  rootLabel,
   heading,
   subtitle,
   actions,
@@ -593,7 +602,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 }) => (
   <div className="p-6">
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <CatalogBreadcrumb current={catalogName} />
+      <CatalogBreadcrumb current={catalogName} root={rootLabel} />
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
