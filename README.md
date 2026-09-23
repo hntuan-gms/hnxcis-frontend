@@ -12,7 +12,7 @@ Giao diện **Hệ thống Quản lý Niêm yết, Trái phiếu & Công bố th
 
 ```
 frontend/
-├── index.html                # nạp /env.js trước bundle
+├── index.html                # nạp /env.js trước bundle.
 ├── public/env.js             # cấu hình runtime (bản dev)
 ├── src/
 │   ├── main.tsx, App.tsx
