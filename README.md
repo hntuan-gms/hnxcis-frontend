@@ -3,7 +3,7 @@
 Giao diện **Hệ thống Quản lý Niêm yết, Trái phiếu & Công bố thông tin HNX**.
 
 - React 19 + Vite 6 + TailwindCSS 4 (SPA)
-- Build tĩnh, phục vụ bằng **nginx** trên **Cloud Run** (service `hnxcis-frontend`)
+- Build tĩnh và phục vụ bằng **nginx** trên **Cloud Run** (service `hnxcis-frontend`)
 - Gọi API của repo `hnxcis-backend` qua `API_BASE_URL` **cấu hình lúc runtime**
 
 ---

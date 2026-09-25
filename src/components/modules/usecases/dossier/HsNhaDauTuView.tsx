@@ -8,6 +8,7 @@ import { Link2, Pencil, Plus, Trash2, Users } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../../lib/imsRoutes';
 import { exportToCsv } from '../../../../lib/exportCsv';
+import { AdvancedFilterButton, AdvancedFilterPanel, AdvFilterField, AdvFilterValues, useAdvancedFilter } from '../AdvancedFilterPanel';
 import {
   BTN_PRIMARY,
   CatalogPage,
@@ -15,8 +16,6 @@ import {
   ColumnSpec,
   ConfirmDeleteDialog,
   EmptyRow,
-  INPUT_CLASS,
-  SELECT_CLASS,
   SortState,
   SortableTh,
   TD_CLASS,
@@ -80,21 +79,47 @@ const searchFields = (row: Investor) => [
   str(row.values.shortName),
 ];
 
-interface Criteria {
-  kind: 'all' | InvestorKind;
-  nationality: string;
-  docType: string;
-  orgType: string;
-  hasFamily: 'all' | 'yes' | 'no';
-}
-const EMPTY_CRITERIA: Criteria = { kind: 'all', nationality: '', docType: 'all', orgType: 'all', hasFamily: 'all' };
+/** `MODULES.nhadautu.filterFields` của file mẫu — không có trường trạng thái vì Nhà đầu tư không có cờ hoạt động. */
+const FILTER_FIELDS: readonly AdvFilterField[] = [
+  {
+    key: 'kind',
+    label: 'Loại nhà đầu tư',
+    type: 'select',
+    options: [
+      { value: 'person', label: 'Cá nhân' },
+      { value: 'org', label: 'Tổ chức' },
+    ],
+  },
+  { key: 'nationality', label: 'Quốc tịch', type: 'text' },
+  {
+    key: 'docType',
+    label: 'Loại giấy tờ định danh (Cá nhân)',
+    type: 'select',
+    options: INVESTOR_DOC_TYPE_OPTIONS.map((o) => ({ value: o, label: o })),
+  },
+  {
+    key: 'orgType',
+    label: 'Loại hình doanh nghiệp (Tổ chức)',
+    type: 'select',
+    options: INVESTOR_ORG_TYPE_OPTIONS.map((o) => ({ value: o, label: o })),
+  },
+  {
+    key: 'hasFamily',
+    label: 'Có quan hệ gia đình',
+    type: 'select',
+    options: [
+      { value: 'yes', label: 'Có' },
+      { value: 'no', label: 'Không' },
+    ],
+  },
+];
 
-function matches(row: Investor, c: Criteria): boolean {
-  if (c.kind !== 'all' && row.kind !== c.kind) return false;
-  if (c.nationality && !str(row.values.nationality).toLowerCase().includes(c.nationality.toLowerCase())) return false;
-  if (c.docType !== 'all' && row.values.docType !== c.docType) return false;
-  if (c.orgType !== 'all' && row.values.orgType !== c.orgType) return false;
-  if (c.hasFamily !== 'all' && (row.familyRelations.length > 0 ? 'yes' : 'no') !== c.hasFamily) return false;
+function matches(row: Investor, v: AdvFilterValues): boolean {
+  if (v.kind !== 'all' && row.kind !== v.kind) return false;
+  if (v.nationality && !str(row.values.nationality).toLowerCase().includes(v.nationality.toLowerCase())) return false;
+  if (v.docType !== 'all' && row.values.docType !== v.docType) return false;
+  if (v.orgType !== 'all' && row.values.orgType !== v.orgType) return false;
+  if (v.hasFamily !== 'all' && (row.familyRelations.length > 0 ? 'yes' : 'no') !== v.hasFamily) return false;
   return true;
 }
 
@@ -104,25 +129,20 @@ function initials(name: string): string {
 
 export const HsNhaDauTuView: React.FC<UseCaseViewProps> = ({ onNavigate }) => {
   const { issuers, investors } = useDossierStore();
-  const [criteria, setCriteria] = useState<Criteria>(EMPTY_CRITERIA);
+  const filter = useAdvancedFilter(FILTER_FIELDS);
   const [formTarget, setFormTarget] = useState<{ row: Investor | null } | null>(null);
   const [familyId, setFamilyId] = useState<number | null>(null);
   const [portfolioId, setPortfolioId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Investor | null>(null);
 
   const list = useCatalogList({
-    rows: investors.filter((r) => matches(r, criteria)),
+    rows: investors.filter((r) => matches(r, filter.applied)),
     searchFields,
     sortValue,
     defaultSort: DEFAULT_SORT,
   });
   const { toasts, pushToast } = useToasts();
   const columns = useColumnVisibility(COLUMNS);
-
-  const setCrit = <K extends keyof Criteria>(key: K, v: Criteria[K]) => {
-    setCriteria((prev) => ({ ...prev, [key]: v }));
-    list.applySearch();
-  };
 
   const nameOf = (id: number) => str(investors.find((i) => i.id === id)?.values.name);
 
@@ -233,42 +253,6 @@ export const HsNhaDauTuView: React.FC<UseCaseViewProps> = ({ onNavigate }) => {
           </button>
         }
       >
-        <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
-          <select value={criteria.kind} onChange={(e) => setCrit('kind', e.target.value as Criteria['kind'])} className={SELECT_CLASS} aria-label="Loại nhà đầu tư">
-            <option value="all">Loại NĐT: Tất cả</option>
-            <option value="person">Cá nhân</option>
-            <option value="org">Tổ chức</option>
-          </select>
-          <input
-            value={criteria.nationality}
-            onChange={(e) => setCrit('nationality', e.target.value)}
-            placeholder="Quốc tịch"
-            aria-label="Quốc tịch"
-            className={INPUT_CLASS}
-          />
-          <select value={criteria.docType} onChange={(e) => setCrit('docType', e.target.value)} className={SELECT_CLASS} aria-label="Loại giấy tờ">
-            <option value="all">Giấy tờ (Cá nhân): Tất cả</option>
-            {INVESTOR_DOC_TYPE_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-          <select value={criteria.orgType} onChange={(e) => setCrit('orgType', e.target.value)} className={SELECT_CLASS} aria-label="Loại hình doanh nghiệp">
-            <option value="all">Loại hình (Tổ chức): Tất cả</option>
-            {INVESTOR_ORG_TYPE_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-          <select value={criteria.hasFamily} onChange={(e) => setCrit('hasFamily', e.target.value as Criteria['hasFamily'])} className={SELECT_CLASS} aria-label="Có quan hệ gia đình">
-            <option value="all">Quan hệ gia đình: Tất cả</option>
-            <option value="yes">Có quan hệ gia đình</option>
-            <option value="no">Không có</option>
-          </select>
-        </div>
-
         <CatalogToolbar
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
@@ -276,7 +260,12 @@ export const HsNhaDauTuView: React.FC<UseCaseViewProps> = ({ onNavigate }) => {
           onSearch={list.applySearch}
           columns={columns}
           onExport={exportRows}
+          advancedFilterButton={<AdvancedFilterButton active={filter.open} count={filter.count} onClick={filter.toggle} />}
         />
+
+        {filter.open && (
+          <AdvancedFilterPanel fields={FILTER_FIELDS} draft={filter.draft} onChange={filter.setField} onApply={filter.apply} onReset={filter.reset} />
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-max border-separate border-spacing-0">
