@@ -440,6 +440,11 @@ interface CatalogToolbarProps {
   showImportExcel?: boolean;
   /** Bộ lọc riêng của màn hình, xếp cùng hàng bên trái (VD: Tỉnh/Thành). */
   children?: React.ReactNode;
+  /**
+   * Nút "Lọc nâng cao" (`AdvancedFilterButton`) — đặt cạnh Cột, trước Nhập
+   * Excel/Xuất File, đúng thứ tự `.filters-row` của file mẫu.
+   */
+  advancedFilterButton?: React.ReactNode;
 }
 
 /**
@@ -463,6 +468,7 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
   onExport,
   showImportExcel,
   children,
+  advancedFilterButton,
 }) => (
   <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
     <div className="flex flex-1 flex-wrap items-center gap-2.5">
@@ -498,6 +504,7 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
 
     <div className="flex shrink-0 items-center gap-2.5">
       <ColumnsButton columns={columns} />
+      {advancedFilterButton}
 
       {showImportExcel && (
         <button

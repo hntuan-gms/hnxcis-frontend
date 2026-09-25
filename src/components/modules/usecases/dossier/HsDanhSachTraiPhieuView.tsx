@@ -8,13 +8,13 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../../lib/imsRoutes';
 import { exportToCsv } from '../../../../lib/exportCsv';
+import { AdvancedFilterButton, AdvancedFilterPanel, AdvFilterField, AdvFilterValues, useAdvancedFilter } from '../AdvancedFilterPanel';
 import {
   CatalogPage,
   CatalogToolbar,
   ColumnSpec,
   ConfirmDeleteDialog,
   EmptyRow,
-  SELECT_CLASS,
   SortState,
   SortableTh,
   TD_CLASS,
@@ -144,21 +144,54 @@ function sortValue(row: BondRow, key: string): string | number {
 
 const searchFields = (r: BondRow) => [str(r.v.bondCode), str(r.v.bondName), r.issuerShortName, r.issuerName];
 
-interface Criteria {
-  businessType: string;
-  bondClass: string;
-  rateType: string;
-  secured: string;
-  statusLabel: string;
-}
-const EMPTY_CRITERIA: Criteria = { businessType: 'all', bondClass: 'all', rateType: 'all', secured: 'all', statusLabel: 'all' };
+/** `MODULES.danhsachtraiphieu.filterFields` của file mẫu — không có trường trạng thái riêng, `statusLabel` đã là một tiêu chí lọc. */
+const FILTER_FIELDS: readonly AdvFilterField[] = [
+  { key: 'issuerBusinessType', label: 'Loại hình doanh nghiệp', type: 'select', options: BUSINESS_TYPE_OPTIONS.map((o) => ({ value: o, label: o })) },
+  {
+    key: 'bondClass',
+    label: 'TP thường / TP xanh',
+    type: 'select',
+    options: [
+      { value: 'TP thường', label: 'TP thường' },
+      { value: 'TP xanh', label: 'TP xanh' },
+    ],
+  },
+  {
+    key: 'interestRateType',
+    label: 'Loại lãi suất',
+    type: 'select',
+    options: [
+      { value: 'Cố định', label: 'Cố định' },
+      { value: 'Thả nổi', label: 'Thả nổi' },
+      { value: 'Kết hợp', label: 'Kết hợp' },
+    ],
+  },
+  {
+    key: 'isSecured',
+    label: 'Trái phiếu bảo đảm',
+    type: 'select',
+    options: [
+      { value: 'Có', label: 'Có' },
+      { value: 'Không', label: 'Không' },
+    ],
+  },
+  {
+    key: 'statusLabel',
+    label: 'Trạng thái lưu hành',
+    type: 'select',
+    options: [
+      { value: 'Đang lưu hành', label: 'Đang lưu hành' },
+      { value: 'Đã đáo hạn', label: 'Đã đáo hạn' },
+    ],
+  },
+];
 
-function matches(r: BondRow, c: Criteria): boolean {
-  if (c.businessType !== 'all' && r.issuerBusinessType !== c.businessType) return false;
-  if (c.bondClass !== 'all' && r.v.bondClass !== c.bondClass) return false;
-  if (c.rateType !== 'all' && r.v.interestRateType !== c.rateType) return false;
-  if (c.secured !== 'all' && yesNo(r.v.isSecured) !== c.secured) return false;
-  if (c.statusLabel !== 'all' && r.statusLabel !== c.statusLabel) return false;
+function matches(r: BondRow, v: AdvFilterValues): boolean {
+  if (v.issuerBusinessType !== 'all' && r.issuerBusinessType !== v.issuerBusinessType) return false;
+  if (v.bondClass !== 'all' && r.v.bondClass !== v.bondClass) return false;
+  if (v.interestRateType !== 'all' && r.v.interestRateType !== v.interestRateType) return false;
+  if (v.isSecured !== 'all' && yesNo(r.v.isSecured) !== v.isSecured) return false;
+  if (v.statusLabel !== 'all' && r.statusLabel !== v.statusLabel) return false;
   return true;
 }
 
@@ -168,7 +201,7 @@ const STICKY_ACT = 'sticky right-0 z-10 bg-white text-center shadow-[-2px_0_4px_
 
 export const HsDanhSachTraiPhieuView: React.FC<UseCaseViewProps> = ({ onNavigate }) => {
   const { issuers } = useDossierStore();
-  const [criteria, setCriteria] = useState<Criteria>(EMPTY_CRITERIA);
+  const filter = useAdvancedFilter(FILTER_FIELDS);
   const [deleteTarget, setDeleteTarget] = useState<BondRow | null>(null);
 
   const rows = useMemo<BondRow[]>(() => {
@@ -198,15 +231,10 @@ export const HsDanhSachTraiPhieuView: React.FC<UseCaseViewProps> = ({ onNavigate
     return out;
   }, [issuers]);
 
-  const list = useCatalogList({ rows: rows.filter((r) => matches(r, criteria)), searchFields, sortValue, defaultSort: DEFAULT_SORT });
+  const list = useCatalogList({ rows: rows.filter((r) => matches(r, filter.applied)), searchFields, sortValue, defaultSort: DEFAULT_SORT });
   const { toasts, pushToast } = useToasts();
   const columns = useColumnVisibility(COLUMN_SPECS);
   const visibleCols = COLS.filter((c) => columns.isVisible(c.key));
-
-  const setCrit = <K extends keyof Criteria>(key: K, v: string) => {
-    setCriteria((prev) => ({ ...prev, [key]: v }));
-    list.applySearch();
-  };
 
   const goto = (r: BondRow, edit = false) => {
     requestIssuerOpen({ issuerId: r.issuerId, dossierKey: r.dossierKey, edit });
@@ -229,15 +257,6 @@ export const HsDanhSachTraiPhieuView: React.FC<UseCaseViewProps> = ({ onNavigate
     pushToast('success', `Xuất dữ liệu thành công (${data.length} dòng)`);
   };
 
-  const filterSelect = (key: keyof Criteria, allLabel: string, options: readonly string[]) => (
-    <select value={criteria[key]} onChange={(e) => setCrit(key, e.target.value)} className={SELECT_CLASS} aria-label={allLabel}>
-      <option value="all">{allLabel}: Tất cả</option>
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
-  );
-
   return (
     <>
       <CatalogPage
@@ -247,14 +266,6 @@ export const HsDanhSachTraiPhieuView: React.FC<UseCaseViewProps> = ({ onNavigate
         subtitle="Tổng hợp toàn bộ trái phiếu riêng lẻ từ mọi tổ chức phát hành"
         actions={null}
       >
-        <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
-          {filterSelect('businessType', 'Loại hình DN', BUSINESS_TYPE_OPTIONS)}
-          {filterSelect('bondClass', 'TP thường / TP xanh', ['TP thường', 'TP xanh'])}
-          {filterSelect('rateType', 'Loại lãi suất', ['Cố định', 'Thả nổi', 'Kết hợp'])}
-          {filterSelect('secured', 'TP bảo đảm', ['Có', 'Không'])}
-          {filterSelect('statusLabel', 'Trạng thái lưu hành', ['Đang lưu hành', 'Đã đáo hạn'])}
-        </div>
-
         <CatalogToolbar
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
@@ -262,7 +273,12 @@ export const HsDanhSachTraiPhieuView: React.FC<UseCaseViewProps> = ({ onNavigate
           onSearch={list.applySearch}
           columns={columns}
           onExport={exportRows}
+          advancedFilterButton={<AdvancedFilterButton active={filter.open} count={filter.count} onClick={filter.toggle} />}
         />
+
+        {filter.open && (
+          <AdvancedFilterPanel fields={FILTER_FIELDS} draft={filter.draft} onChange={filter.setField} onApply={filter.apply} onReset={filter.reset} />
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-max border-separate border-spacing-0">

@@ -8,6 +8,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../lib/imsRoutes';
 import { exportToCsv } from '../../../lib/exportCsv';
+import { AdvancedFilterButton, AdvancedFilterPanel, AdvFilterField, AdvFilterValues, useAdvancedFilter } from './AdvancedFilterPanel';
 import {
   BTN_PRIMARY,
   CatalogPage,
@@ -15,7 +16,6 @@ import {
   ColumnSpec,
   ConfirmDeleteDialog,
   EmptyRow,
-  SELECT_CLASS,
   SortState,
   SortableTh,
   TD_CLASS,
@@ -86,18 +86,34 @@ const COLUMN_SPECS: readonly ColumnSpec[] = [
   ...AUDIT_COLUMNS,
 ];
 
-interface Criteria {
-  readonly orgType: string;
-  readonly dossierType: string;
-  readonly recordStatus: string;
-}
+/**
+ * `MODULES.tochuclienquan.filterFields` của file mẫu — đúng 5 trường, đúng thứ
+ * tự: Loại tổ chức, Ngày bắt đầu hoạt động, Tình trạng hoạt động, Trạng thái
+ * (hồ sơ), Loại hồ sơ. Vì có `hasAdvancedFilter:true`, dropdown trạng thái rời
+ * của `CatalogToolbar` không xuất hiện — "Tình trạng hoạt động" nằm trong panel.
+ */
+const FILTER_FIELDS: readonly AdvFilterField[] = [
+  { key: 'orgType', label: 'Loại tổ chức', type: 'select', options: ORG_TYPE_OPTIONS.map((o) => ({ value: o, label: o })) },
+  { key: 'startDate', label: 'Ngày bắt đầu hoạt động', type: 'date' },
+  {
+    key: 'operatingStatus',
+    label: 'Tình trạng hoạt động',
+    type: 'select',
+    options: [
+      { value: '1', label: 'Bình thường' },
+      { value: '0', label: 'Ngừng hoạt động' },
+    ],
+  },
+  { key: 'recordStatus', label: 'Trạng thái', type: 'select', options: RECORD_STATUS_OPTIONS.map((o) => ({ value: o, label: o })) },
+  { key: 'dossierType', label: 'Loại hồ sơ', type: 'select', options: DOSSIER_TYPE_OPTIONS.map((o) => ({ value: o, label: o })) },
+];
 
-const EMPTY_CRITERIA: Criteria = { orgType: 'all', dossierType: 'all', recordStatus: 'all' };
-
-function matches(row: RelatedOrgRow, c: Criteria): boolean {
-  if (c.orgType !== 'all' && row.orgType !== c.orgType) return false;
-  if (c.dossierType !== 'all' && row.dossierType !== c.dossierType) return false;
-  if (c.recordStatus !== 'all' && row.recordStatus !== c.recordStatus) return false;
+function matches(row: RelatedOrgRow, v: AdvFilterValues): boolean {
+  if (v.orgType !== 'all' && row.orgType !== v.orgType) return false;
+  if (v.startDate && row.startDate !== v.startDate) return false;
+  if (v.operatingStatus !== 'all' && String(row.statusFlg) !== v.operatingStatus) return false;
+  if (v.recordStatus !== 'all' && row.recordStatus !== v.recordStatus) return false;
+  if (v.dossierType !== 'all' && row.dossierType !== v.dossierType) return false;
   return true;
 }
 
@@ -111,10 +127,10 @@ const STICKY_NAME = 'sticky left-15 z-10 min-w-65 max-w-80 bg-white shadow-[2px_
 export const HsToChucLienQuanView: React.FC = () => {
   const [rows, setRows] = useState<RelatedOrgRow[]>(() => [...INITIAL_RELATED_ORGS]);
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
-  const [criteria, setCriteria] = useState<Criteria>(EMPTY_CRITERIA);
+  const filter = useAdvancedFilter(FILTER_FIELDS);
   const [deleteTarget, setDeleteTarget] = useState<RelatedOrgRow | null>(null);
 
-  const scopedRows = rows.filter((r) => matches(r, criteria));
+  const scopedRows = rows.filter((r) => matches(r, filter.applied));
 
   const list = useCatalogList({
     rows: scopedRows,
@@ -125,11 +141,6 @@ export const HsToChucLienQuanView: React.FC = () => {
 
   const { toasts, pushToast } = useToasts();
   const columns = useColumnVisibility(COLUMN_SPECS);
-
-  const changeCriteria = (key: keyof Criteria, value: string) => {
-    setCriteria((prev) => ({ ...prev, [key]: value }));
-    list.applySearch();
-  };
 
   const saveOrg = (draft: RelatedOrgDraft) => {
     if (screen.kind !== 'detail') return;
@@ -241,64 +252,19 @@ export const HsToChucLienQuanView: React.FC = () => {
           </button>
         }
       >
-        <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-          <label className="flex items-center gap-2">
-            <span className="w-24 shrink-0 text-[13px] text-[#525252]">Loại tổ chức</span>
-            <select
-              value={criteria.orgType}
-              onChange={(e) => changeCriteria('orgType', e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="all">Tất cả</option>
-              {ORG_TYPE_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="w-24 shrink-0 text-[13px] text-[#525252]">Loại hồ sơ</span>
-            <select
-              value={criteria.dossierType}
-              onChange={(e) => changeCriteria('dossierType', e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="all">Tất cả</option>
-              {DOSSIER_TYPE_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="w-24 shrink-0 text-[13px] text-[#525252]">Trạng thái hồ sơ</span>
-            <select
-              value={criteria.recordStatus}
-              onChange={(e) => changeCriteria('recordStatus', e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="all">Tất cả</option>
-              {RECORD_STATUS_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
         <CatalogToolbar
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
           searchPlaceholder="Tìm tên, tên viết tắt, mã lưu ký, mã giao dịch..."
           onSearch={list.applySearch}
-          status={list.draftStatus}
-          onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          advancedFilterButton={<AdvancedFilterButton active={filter.open} count={filter.count} onClick={filter.toggle} />}
         />
+
+        {filter.open && (
+          <AdvancedFilterPanel fields={FILTER_FIELDS} draft={filter.draft} onChange={filter.setField} onApply={filter.apply} onReset={filter.reset} />
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-max border-separate border-spacing-0">

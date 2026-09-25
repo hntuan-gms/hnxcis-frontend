@@ -8,7 +8,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { findImsUseCaseByCode } from '../../../../lib/imsRoutes';
 import { exportToCsv } from '../../../../lib/exportCsv';
-import { DateField } from '../CalendarDatePicker';
+import { AdvancedFilterButton, AdvancedFilterPanel, AdvFilterField, AdvFilterValues, useAdvancedFilter } from '../AdvancedFilterPanel';
 import {
   BULK_CHECKBOX_CLASS,
   BTN_PRIMARY,
@@ -19,8 +19,6 @@ import {
   ConfirmDeleteDialog,
   ConfirmDeleteManyDialog,
   EmptyRow,
-  INPUT_CLASS,
-  SELECT_CLASS,
   SortState,
   SortableTh,
   StatusPill,
@@ -83,19 +81,29 @@ const searchFields = (row: Issuer) => [str(row.values.name), str(row.values.shor
 
 const orgTypeOf = (row: Issuer) => str(row.kind === 'tochuckhac' ? row.values.tcphType : row.values.businessType);
 
-interface Criteria {
-  businessType: string;
-  industry: string;
-  taxCode: string;
-  establishedDate: string;
-}
-const EMPTY_CRITERIA: Criteria = { businessType: 'all', industry: 'all', taxCode: '', establishedDate: '' };
+/** `MODULES.hosotcph.filterFields` của file mẫu. */
+const FILTER_FIELDS: readonly AdvFilterField[] = [
+  { key: 'businessType', label: 'Loại hình doanh nghiệp', type: 'select', allLabel: 'Tất cả loại hình', options: BUSINESS_TYPE_OPTIONS.map((o) => ({ value: o, label: o })) },
+  { key: 'industry', label: 'Lĩnh vực / ngành nghề', type: 'select', allLabel: 'Tất cả lĩnh vực', options: INDUSTRY_OPTIONS.map((o) => ({ value: o, label: o })) },
+  { key: 'taxCode', label: 'Mã số thuế', type: 'text' },
+  { key: 'establishedDate', label: 'Ngày thành lập', type: 'date' },
+  {
+    key: 'status',
+    label: 'Trạng thái',
+    type: 'select',
+    options: [
+      { value: '1', label: 'Đang hoạt động' },
+      { value: '0', label: 'Ngừng hoạt động' },
+    ],
+  },
+];
 
-function matches(row: Issuer, c: Criteria): boolean {
-  if (c.businessType !== 'all' && row.values.businessType !== c.businessType) return false;
-  if (c.industry !== 'all' && row.values.industry !== c.industry) return false;
-  if (c.taxCode && !str(row.values.taxCode).includes(c.taxCode.trim())) return false;
-  if (c.establishedDate && row.values.establishedDate !== c.establishedDate) return false;
+function matches(row: Issuer, v: AdvFilterValues): boolean {
+  if (v.businessType !== 'all' && row.values.businessType !== v.businessType) return false;
+  if (v.industry !== 'all' && row.values.industry !== v.industry) return false;
+  if (v.taxCode && !str(row.values.taxCode).includes(v.taxCode.trim())) return false;
+  if (v.establishedDate && row.values.establishedDate !== v.establishedDate) return false;
+  if (v.status !== 'all' && String(row.statusFlg) !== v.status) return false;
   return true;
 }
 
@@ -119,20 +127,15 @@ export const HsToChucPhatHanhView: React.FC = () => {
       },
     };
   });
-  const [criteria, setCriteria] = useState<Criteria>(EMPTY_CRITERIA);
+  const filter = useAdvancedFilter(FILTER_FIELDS);
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Issuer | null>(null);
   const [bulkDelete, setBulkDelete] = useState(false);
 
-  const list = useCatalogList({ rows: issuers.filter((r) => matches(r, criteria)), searchFields, sortValue, defaultSort: DEFAULT_SORT });
+  const list = useCatalogList({ rows: issuers.filter((r) => matches(r, filter.applied)), searchFields, sortValue, defaultSort: DEFAULT_SORT });
   const bulk = useBulkSelection(issuers.filter((r) => r.deleteFlg === 0));
   const { toasts, pushToast } = useToasts();
   const columns = useColumnVisibility(COLUMNS);
-
-  const setCrit = <K extends keyof Criteria>(key: K, v: Criteria[K]) => {
-    setCriteria((prev) => ({ ...prev, [key]: v }));
-    list.applySearch();
-  };
 
   const softDelete = (ids: readonly number[]) => {
     const now = todayISO();
@@ -240,34 +243,20 @@ export const HsToChucPhatHanhView: React.FC = () => {
           </button>
         }
       >
-        <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          <select value={criteria.businessType} onChange={(e) => setCrit('businessType', e.target.value)} className={SELECT_CLASS} aria-label="Loại hình doanh nghiệp">
-            <option value="all">Tất cả loại hình</option>
-            {BUSINESS_TYPE_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-          <select value={criteria.industry} onChange={(e) => setCrit('industry', e.target.value)} className={SELECT_CLASS} aria-label="Lĩnh vực">
-            <option value="all">Tất cả lĩnh vực</option>
-            {INDUSTRY_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-          <input value={criteria.taxCode} onChange={(e) => setCrit('taxCode', e.target.value)} placeholder="Mã số thuế" aria-label="Mã số thuế" className={INPUT_CLASS} />
-          <DateField value={criteria.establishedDate || null} placeholder="Ngày thành lập" onChange={(v) => setCrit('establishedDate', v ?? '')} />
-        </div>
-
         <CatalogToolbar
           keyword={list.draftKeyword}
           onKeyword={list.setDraftKeyword}
           searchPlaceholder="Tìm kiếm theo Tên, Mã số thuế..."
           onSearch={list.applySearch}
-          status={list.draftStatus}
-          onStatus={list.applyStatus}
           columns={columns}
           onExport={exportRows}
+          advancedFilterButton={<AdvancedFilterButton active={filter.open} count={filter.count} onClick={filter.toggle} />}
           showImportExcel
         />
+
+        {filter.open && (
+          <AdvancedFilterPanel fields={FILTER_FIELDS} draft={filter.draft} onChange={filter.setField} onApply={filter.apply} onReset={filter.reset} />
+        )}
 
         <BulkActionBar count={bulk.count} onClear={bulk.clear} onDelete={() => setBulkDelete(true)} />
 
