@@ -115,6 +115,11 @@ export function useDossierStore(): DossierState {
   return useSyncExternalStore(subscribe, () => state);
 }
 
+/** Đọc ngoài React — kho hồ sơ đăng ký chuyên trang (IMS-018) cần khi phê duyệt. */
+export function getDossierState(): DossierState {
+  return state;
+}
+
 /** Cập nhật bất biến: `fn` nhận bản sao sâu của một TCPH và sửa trực tiếp trên đó. */
 export function updateIssuer(id: number, fn: (draft: Issuer) => void) {
   state = {

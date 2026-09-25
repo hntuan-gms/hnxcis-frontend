@@ -5,6 +5,7 @@
 
 import React from 'react';
 
+import type { UserAccount } from '../../../types/hnx';
 import { DEFAULT_IMS_MODULE } from '../../../lib/imsRoutes';
 import { HnxSrsChucVuView } from './HnxSrsChucVuView';
 import { Ims002QuocGiaView } from './Ims002QuocGiaView';
@@ -18,6 +19,9 @@ import { HsToChucLienQuanView } from './HsToChucLienQuanView';
 import { HsToChucPhatHanhView } from './dossier/HsToChucPhatHanhView';
 import { HsNhaDauTuView } from './dossier/HsNhaDauTuView';
 import { HsDanhSachTraiPhieuView } from './dossier/HsDanhSachTraiPhieuView';
+import { HomeView } from './accounts/HomeView';
+import { Ims018TaiKhoanView } from './accounts/Ims018TaiKhoanView';
+import { Ims018PheDuyetView } from './accounts/Ims018PheDuyetView';
 
 /**
  * Bảng tra mã module → view, cho khối chức năng `uc_*` của cổng IMS.
@@ -32,9 +36,15 @@ import { HsDanhSachTraiPhieuView } from './dossier/HsDanhSachTraiPhieuView';
  */
 export interface UseCaseViewProps {
   onNavigate?: (moduleCode: string) => void;
+  /**
+   * Người đang đăng nhập /ims. Chỉ nhóm "Quản lý Tài khoản" (IMS-018) dùng: phạm
+   * vi dữ liệu và quyền tạo tài khoản phụ thuộc phòng ban + cấp của người này.
+   */
+  currentUser?: UserAccount;
 }
 
 const VIEWS: Record<string, React.ComponentType<UseCaseViewProps>> = {
+  uc_home: HomeView,
   uc_ims_002: Ims002QuocGiaView,
   uc_ims_003: Ims003TinhThanhView,
   uc_ims_004: Ims004XaPhuongView,
@@ -47,6 +57,8 @@ const VIEWS: Record<string, React.ComponentType<UseCaseViewProps>> = {
   uc_hs_ndt: HsNhaDauTuView,
   uc_hs_dstp: HsDanhSachTraiPhieuView,
   uc_hs_tclq: HsToChucLienQuanView,
+  uc_ims_018: Ims018TaiKhoanView,
+  uc_ims_018_5: Ims018PheDuyetView,
 };
 
 interface UseCaseRouterProps extends UseCaseViewProps {
@@ -57,7 +69,7 @@ interface UseCaseRouterProps extends UseCaseViewProps {
  * Mã lạ rơi về màn hình mặc định thay vì render trắng — người dùng gõ sai URL
  * vẫn thấy một trang dùng được.
  */
-export const UseCaseRouter: React.FC<UseCaseRouterProps> = ({ activeModule, onNavigate }) => {
+export const UseCaseRouter: React.FC<UseCaseRouterProps> = ({ activeModule, onNavigate, currentUser }) => {
   const View = VIEWS[activeModule] ?? VIEWS[DEFAULT_IMS_MODULE];
-  return <View onNavigate={onNavigate} />;
+  return <View onNavigate={onNavigate} currentUser={currentUser} />;
 };

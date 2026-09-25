@@ -65,6 +65,8 @@ import {
   isImsUseCaseModule,
 } from './lib/imsRoutes';
 import { UseCaseRouter } from './components/modules/usecases';
+import { toLoginUsers, useAccountStore } from './components/modules/usecases/accounts/accountStore';
+import { ChangePasswordModal } from './components/modules/usecases/accounts/AccountDialogs';
 
 export default function App() {
   /**
@@ -126,6 +128,17 @@ export default function App() {
 
   /** FR-060 — trạng thái đăng nhập của cổng IMS. */
   const [authenticated, setAuthenticated] = useState(false);
+
+  /**
+   * [IMS-018] — bảng LOGINS là nguồn trạng thái tài khoản cho màn đăng nhập:
+   * khóa / xóa ở màn Quản lý tài khoản là chặn đăng nhập thật, tài khoản vừa tạo
+   * đăng nhập được ngay (và bị bắt đổi mật khẩu lần đầu).
+   */
+  const { accounts } = useAccountStore();
+  const loginUsers = useMemo(() => toLoginUsers(users, accounts), [users, accounts]);
+
+  /** IMS-018-6.2 — popup "Đổi mật khẩu" mở từ menu cá nhân ở thanh trên. */
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   /**
    * Phiên đăng nhập của ICDS và Corporate News.
@@ -521,7 +534,7 @@ export default function App() {
     return (
       <LoginScreen
         portal="internal"
-        users={users}
+        users={loginUsers}
         policy={INITIAL_SECURITY_POLICY}
         onAuthenticated={(user) => {
           setCurrentUser(user);
@@ -537,7 +550,7 @@ export default function App() {
     return (
       <LoginScreen
         portal="corporate"
-        users={users}
+        users={loginUsers}
         policy={INITIAL_SECURITY_POLICY}
         onAuthenticated={(user) => {
           setIcdsUser(user);
@@ -550,7 +563,7 @@ export default function App() {
     return (
       <LoginScreen
         portal="public"
-        users={users}
+        users={loginUsers}
         policy={INITIAL_SECURITY_POLICY}
         onAuthenticated={(user) => setNewsUser(user)}
       />
@@ -568,7 +581,7 @@ export default function App() {
     <>
       {/* Các chức năng đã có SRS — xem `lib/imsRoutes.ts`. */}
       {isImsUseCaseModule(activeModule) && (
-        <UseCaseRouter activeModule={activeModule} onNavigate={changeModule} />
+        <UseCaseRouter activeModule={activeModule} onNavigate={changeModule} currentUser={currentUser} />
       )}
 
       {activeModule === 'dashboard' && (
@@ -765,6 +778,7 @@ export default function App() {
             notifications={allNotifications}
             onOpenMenu={() => setSidebarOpen(true)}
             onNavigate={changeModule}
+            onChangePassword={() => setChangePasswordOpen(true)}
           />
 
           {/*
@@ -776,6 +790,10 @@ export default function App() {
         </div>
 
         {auditModal}
+
+        {changePasswordOpen && (
+          <ChangePasswordModal loginName={currentUser.username} onClose={() => setChangePasswordOpen(false)} />
+        )}
       </div>
     );
   }

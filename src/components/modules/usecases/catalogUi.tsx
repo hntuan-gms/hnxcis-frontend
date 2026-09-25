@@ -438,6 +438,11 @@ interface CatalogToolbarProps {
    * dữ liệu) trong khi ba màn khác lại không có gì.
    */
   showImportExcel?: boolean;
+  /**
+   * Nút thêm ở cụm bên phải, đứng giữa `Cột` và `Xuất File` — đúng vị trí nút
+   * "Lọc nâng cao" của `docs/quan-ly-danh-muc_80.html`.
+   */
+  extraActions?: React.ReactNode;
   /** Bộ lọc riêng của màn hình, xếp cùng hàng bên trái (VD: Tỉnh/Thành). */
   children?: React.ReactNode;
 }
@@ -462,6 +467,7 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
   columns,
   onExport,
   showImportExcel,
+  extraActions,
   children,
 }) => (
   <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
@@ -498,6 +504,8 @@ export const CatalogToolbar: React.FC<CatalogToolbarProps> = ({
 
     <div className="flex shrink-0 items-center gap-2.5">
       <ColumnsButton columns={columns} />
+
+      {extraActions}
 
       {showImportExcel && (
         <button
@@ -729,9 +737,20 @@ interface ModalShellProps {
   onClose: () => void;
   children: React.ReactNode;
   footer: React.ReactNode;
-  /** Popup xác nhận hẹp hơn popup form (`.confirm-modal .modal` ở file mẫu). */
-  width?: 'form' | 'confirm';
+  /**
+   * Popup xác nhận hẹp hơn popup form (`.confirm-modal .modal` ở file mẫu).
+   * `medium`/`wide` cho popup nhiều trường hoặc có bảng (tài khoản IMS-018 có
+   * gần 30 trường — ép vào 440px thì mỗi trường một dòng, cuộn mỏi tay).
+   */
+  width?: 'form' | 'confirm' | 'medium' | 'wide';
 }
+
+const MODAL_WIDTH: Record<NonNullable<ModalShellProps['width']>, string> = {
+  confirm: 'max-w-95',
+  form: 'max-w-110',
+  medium: 'max-w-150',
+  wide: 'max-w-4xl',
+};
 
 export const ModalShell: React.FC<ModalShellProps> = ({
   title,
@@ -761,9 +780,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
       aria-label={title}
     >
       <div
-        className={`max-h-[calc(100vh-3rem)] w-full overflow-y-auto rounded-xl bg-white shadow-2xl ${
-          width === 'confirm' ? 'max-w-95' : 'max-w-110'
-        }`}
+        className={`max-h-[calc(100vh-3rem)] w-full overflow-y-auto rounded-xl bg-white shadow-2xl ${MODAL_WIDTH[width]}`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <h3 className="text-base font-semibold text-[#292929]">{title}</h3>

@@ -50,6 +50,8 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  Home,
+  UserCog,
 } from 'lucide-react';
 
 /** Hai chữ cái đầu của tên, cho avatar tròn ở chân sidebar. */
@@ -71,6 +73,8 @@ import { IMS_USE_CASES } from '../../lib/imsRoutes';
 
 const CATALOG_USE_CASES = IMS_USE_CASES.filter((uc) => uc.group === 'catalog');
 const DOSSIER_USE_CASES = IMS_USE_CASES.filter((uc) => uc.group === 'dossier');
+const HOME_USE_CASE = IMS_USE_CASES.find((uc) => uc.group === 'home');
+const ACCOUNT_USE_CASES = IMS_USE_CASES.filter((uc) => uc.group === 'account');
 import { getRoleLabel } from '../../data/roleCatalog';
 import hnxLogo from '../../assets/hnx-logo.png';
 
@@ -409,6 +413,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto p-3 text-xs">
         {/*
+          Trang chủ — đứng riêng ở đầu menu, cùng kiểu chữ với nhãn nhóm nhưng
+          bấm được. Là màn mặc định của /ims (widget nhắc tạo tài khoản IMS-018-8).
+        */}
+        {HOME_USE_CASE && (
+          <button
+            type="button"
+            onClick={() => pickModule(HOME_USE_CASE.code)}
+            title={`${HOME_USE_CASE.ucCode} — ${HOME_USE_CASE.label}`}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2.25 text-left text-[13px] font-medium transition-colors duration-[120ms] ease-[ease] ${
+              activeModule === HOME_USE_CASE.code
+                ? 'bg-white/16 text-white'
+                : 'text-white/92 hover:bg-white/8 hover:text-white'
+            }`}
+          >
+            <Home className="h-4 w-4 shrink-0 opacity-90" />
+            <span>{HOME_USE_CASE.menuLabel}</span>
+          </button>
+        )}
+
+        {/*
           Khối chức năng đã có SRS (docs/srs/) — cấu trúc menu lấy theo file mẫu
           docs/quan-ly-danh-muc_2.html: một nhãn nhóm không bấm được ("Quản lý hệ
           thống"), một nhóm con gập/mở ("Quản lý Danh mục"), rồi các mục con thụt
@@ -555,6 +579,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/*
+          Nhóm "Quản lý Tài khoản" — Hình 1.1 của `[IMS-018]`: nhãn nhóm có icon
+          người dùng, các mục nằm ngay dưới nhãn ở tầng "nhóm con" (dấu tròn,
+          thụt `pl-5`), không có tầng gập/mở thứ hai như Danh mục / Hồ sơ.
+        */}
+        {ACCOUNT_USE_CASES.length > 0 && (
+          <div className="space-y-0.5">
+            <div className="flex select-none items-center gap-2 rounded-lg px-2.5 py-2.25 text-[13px] font-medium text-white/92">
+              <UserCog className="h-4 w-4 shrink-0 opacity-90" />
+              <span>Quản lý Tài khoản</span>
+              <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-90" />
+            </div>
+
+            {ACCOUNT_USE_CASES.map((uc) => (
+              <button
+                key={uc.code}
+                onClick={() => pickModule(uc.code)}
+                title={`${uc.ucCode} — ${uc.label}`}
+                className={`my-px flex w-full items-center gap-2 rounded-lg py-2 pr-2.5 pl-5 text-left text-[13px] transition-colors duration-[120ms] ease-[ease] ${
+                  activeModule === uc.code
+                    ? 'bg-white/16 font-medium text-white'
+                    : 'text-white/80 hover:bg-white/8 hover:text-white'
+                }`}
+              >
+                <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-current opacity-85" />
+                <span className="leading-tight">{uc.menuLabel}</span>
+              </button>
+            ))}
           </div>
         )}
 

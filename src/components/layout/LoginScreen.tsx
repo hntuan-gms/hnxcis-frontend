@@ -17,6 +17,9 @@ import hnxLogoDark from '../../assets/hnx-logo-dark.png';
 import hnxBuilding from '../../assets/hnx.jpeg';
 import type { UserAccount, SecurityPolicy } from '../../types/hnx';
 import { PORTAL_ACTOR_TYPE, PORTAL_LABEL, PORTAL_PATH, type Portal } from '../../lib/portalRoute';
+import { changeOwnPassword, findAccount } from '../modules/usecases/accounts/accountStore';
+import { PasswordChangeFields, usePasswordChange } from '../modules/usecases/accounts/PasswordFields';
+import { BTN_OUTLINE, BTN_PRIMARY } from '../modules/usecases/catalogUi';
 
 /**
  * FR-060 · Màn hình đăng nhập và các ràng buộc bảo mật khi đăng nhập.
@@ -40,7 +43,20 @@ import { PORTAL_ACTOR_TYPE, PORTAL_LABEL, PORTAL_PATH, type Portal } from '../..
  * "người dùng nội bộ / bên ngoài": danh sách tài khoản gợi ý tự lọc theo cổng,
  * gõ nhầm tài khoản của cổng khác bị `submitCredentials` từ chối và chỉ thẳng
  * sang cổng đúng.
+ *
+ * [IMS-018] — tài khoản có bản ghi trong LOGINS (`accountStore`) được kiểm tra
+ * mật khẩu THẬT với mật khẩu đang lưu, nên đặt lại mật khẩu ở màn Quản lý tài
+ * khoản làm mật khẩu cũ mất hiệu lực ngay. Tài khoản đang giữ mật khẩu tạm (mới
+ * tạo hoặc vừa bị đặt lại) phải qua bước "Thay đổi mật khẩu lần đầu" (IMS-018-7)
+ * mới vào được hệ thống. Tài khoản bật GA/CA/SMS luôn qua bước xác thực 2 lớp.
  */
+
+/** Lời nhắc ở bước xác thực 2 lớp theo phương thức đã đăng ký (IMS-018 chức năng 9). */
+const MFA_PROMPT: Record<'GA' | 'CA' | 'SMS', string> = {
+  GA: 'Nhập mã 6 chữ số từ ứng dụng Google Authenticator.',
+  CA: 'Xác thực bằng chứng thư số — prototype chưa nối CA, nhập mã 6 chữ số bất kỳ để mô phỏng.',
+  SMS: 'Nhập mã OTP 6 chữ số vừa gửi qua SMS tới số điện thoại đã đăng ký.',
+};
 
 interface LoginScreenProps {
   portal: Portal;
@@ -56,11 +72,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [otp, setOtp] = useState('');
-  const [stage, setStage] = useState<'CREDENTIALS' | 'MFA'>('CREDENTIALS');
+  const [stage, setStage] = useState<'CREDENTIALS' | 'MFA' | 'FIRST_LOGIN'>('CREDENTIALS');
   const [pendingUser, setPendingUser] = useState<UserAccount | null>(null);
   const [failedCount, setFailedCount] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const firstLogin = usePasswordChange(username.trim());
+  const [tempPasswordError, setTempPasswordError] = useState<string | undefined>();
+
+  /** Bản ghi LOGINS của người đang đăng nhập — `undefined` với persona chưa có trong bảng. */
+  const pendingAccount = pendingUser ? findAccount(pendingUser.username) : undefined;
+
+  /** Qua hết bước xác thực: còn mật khẩu tạm thì bắt đổi (IMS-018-7), không thì vào hệ thống. */
+  const finishLogin = (user: UserAccount) => {
+    if (findAccount(user.username)?.mustChangePassword) {
+      setPendingUser(user);
+      setStage('FIRST_LOGIN');
+      return;
+    }
+    onAuthenticated(user);
+  };
+
+  const backToCredentials = () => {
+    setStage('CREDENTIALS');
+    setPendingUser(null);
+    setOtp('');
+    setPassword('');
+    firstLogin.setCurrent('');
+    firstLogin.setNext('');
+    firstLogin.setConfirm('');
+    setTempPasswordError(undefined);
+  };
+
+  const submitFirstLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingUser || !pendingAccount) return;
+    if (!firstLogin.allRulesPassed || !firstLogin.confirmMatches) return;
+    if (firstLogin.current !== pendingAccount.password) {
+      setTempPasswordError('Mật khẩu tạm thời không đúng');
+      return;
+    }
+    if (firstLogin.next === pendingAccount.password) {
+      setTempPasswordError('Mật khẩu mới phải khác mật khẩu tạm thời');
+      return;
+    }
+    changeOwnPassword(pendingUser.username, firstLogin.next, true);
+    onAuthenticated(pendingUser);
+  };
 
   const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
   const lockMinutesLeft = lockedUntil ? Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000)) : 0;
@@ -87,7 +145,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
       registerFailure('Tên đăng nhập hoặc mật khẩu không đúng.');
       return;
     }
-    if (!password) {
+    // Tài khoản có trong LOGINS: so với mật khẩu đang lưu. Persona chưa có bản
+    // ghi thì giữ cách cũ của prototype — chỉ cần khác rỗng.
+    const account = findAccount(found.username);
+    if (!password || (account && account.password !== password)) {
       registerFailure('Tên đăng nhập hoặc mật khẩu không đúng.');
       return;
     }
@@ -113,12 +174,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
     setError(null);
     setFailedCount(0);
 
-    if (policy.mfaRequiredForRoles.includes(found.roleCode)) {
+    if (policy.mfaRequiredForRoles.includes(found.roleCode) || account?.twoFactor) {
       setPendingUser(found);
       setStage('MFA');
       return;
     }
-    onAuthenticated(found);
+    finishLogin(found);
   };
 
   const submitOtp = (e: React.FormEvent) => {
@@ -129,7 +190,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
       registerFailure('Mã xác thực phải gồm 6 chữ số.');
       return;
     }
-    onAuthenticated(pendingUser);
+    finishLogin(pendingUser);
   };
 
   return (
@@ -149,12 +210,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
           </div>
 
           <h1 className="text-2xl font-bold text-slate-900 mb-1">
-            {stage === 'CREDENTIALS' ? 'Đăng nhập' : 'Xác thực hai yếu tố'}
+            {stage === 'CREDENTIALS'
+              ? 'Đăng nhập'
+              : stage === 'MFA'
+                ? 'Xác thực hai yếu tố'
+                : 'Thay đổi mật khẩu lần đầu'}
           </h1>
           <p className="text-sm text-slate-500 mb-6">
             {stage === 'CREDENTIALS'
               ? `Vui lòng đăng nhập để truy cập ${PORTAL_LABEL[portal]}`
-              : `Vai trò ${pendingUser?.roleCode} yêu cầu xác thực hai yếu tố. Nhập mã 6 chữ số từ ứng dụng xác thực.`}
+              : stage === 'MFA'
+                ? pendingAccount?.twoFactor
+                  ? MFA_PROMPT[pendingAccount.twoFactor]
+                  : `Vai trò ${pendingUser?.roleCode} yêu cầu xác thực hai yếu tố. Nhập mã 6 chữ số từ ứng dụng xác thực.`
+                : 'Tài khoản đang dùng mật khẩu tạm thời. Đặt mật khẩu mới theo chính sách bên dưới để tiếp tục.'}
           </p>
 
           {error && (
@@ -246,6 +315,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
                 Đăng nhập
               </button>
             </form>
+          ) : stage === 'FIRST_LOGIN' ? (
+            /* IMS-018-7 — Màn hình 7: mật khẩu tạm, mật khẩu mới + xác nhận, thanh độ mạnh, 6 điều kiện. */
+            <form onSubmit={submitFirstLogin} className="space-y-5">
+              <PasswordChangeFields
+                state={{
+                  ...firstLogin,
+                  setCurrent: (v) => {
+                    firstLogin.setCurrent(v);
+                    setTempPasswordError(undefined);
+                  },
+                }}
+                currentLabel="Mật khẩu tạm thời"
+                currentPlaceholder="Nhập mật khẩu tạm thời được cấp"
+                currentError={tempPasswordError}
+              />
+              <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  className={BTN_OUTLINE}
+                  onClick={() => {
+                    if (!firstLogin.dirty || window.confirm('Thoát mà không đổi mật khẩu? Bạn sẽ phải đăng nhập lại.')) {
+                      backToCredentials();
+                    }
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className={BTN_PRIMARY}
+                  disabled={!firstLogin.current || !firstLogin.allRulesPassed || !firstLogin.confirmMatches}
+                >
+                  Đổi mật khẩu
+                </button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={submitOtp} className="space-y-4">
               <div>
@@ -300,7 +405,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
                       type="button"
                       onClick={() => {
                         setUsername(u.username);
-                        setPassword('demo-password');
+                        // Tài khoản có trong LOGINS thì điền đúng mật khẩu đang lưu —
+                        // kể cả mật khẩu tạm vừa được đặt lại ở màn Quản lý tài khoản.
+                        setPassword(findAccount(u.username)?.password ?? 'demo-password');
                         setError(null);
                       }}
                       className="px-2 py-1 rounded-sm bg-slate-50 border border-slate-200 text-[10px] font-mono text-slate-600 hover:border-hnx-mid hover:text-hnx-deep"
@@ -310,8 +417,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ portal, users, policy,
                   ))}
               </div>
               <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                Prototype chưa nối backend xác thực nên mật khẩu không được kiểm tra thật — chỉ cần khác rỗng.
-                Ràng buộc số lần sai, khóa tài khoản và xác thực hai yếu tố thì có hiệu lực thật.
+                Prototype chưa nối Keycloak. Tài khoản có trong Quản lý tài khoản (IMS-018) được kiểm tra mật khẩu
+                theo dữ liệu mẫu — bấm tên tài khoản để điền sẵn; tài khoản khác chỉ cần mật khẩu khác rỗng. Ràng
+                buộc số lần sai, khóa tài khoản, xác thực hai yếu tố và đổi mật khẩu lần đầu có hiệu lực thật.
               </p>
 
               <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed">

@@ -42,14 +42,28 @@ export interface ImsUseCaseRoute {
   readonly menuLabel: string;
   /**
    * Nhóm menu trên sidebar. `dossier` = "Quản lý hồ sơ" — theo BA, nhóm này CHỈ
-   * có ở /ims, không xuất hiện ở /icds hay /news.
+   * có ở /ims, không xuất hiện ở /icds hay /news. `account` = "Quản lý Tài
+   * khoản" (IMS-018). `home` = mục Trang chủ đứng riêng ở đầu menu.
    */
   readonly group: ImsMenuGroup;
 }
 
-export type ImsMenuGroup = 'catalog' | 'dossier';
+export type ImsMenuGroup = 'home' | 'catalog' | 'dossier' | 'account';
 
 export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
+  /**
+   * Trang chủ — nơi đặt widget "Nhắc phê duyệt hồ sơ và tạo tài khoản"
+   * (IMS-018-8, SRS §2.8: "1 khối nhỏ trong Màn hình Trang chủ"). Đứng ĐẦU danh
+   * sách nên cũng là màn mặc định khi vào thẳng `/ims`.
+   */
+  {
+    code: 'uc_home',
+    slug: 'trang-chu',
+    ucCode: 'IMS-018-8',
+    label: 'Trang chủ',
+    menuLabel: 'Trang chủ',
+    group: 'home',
+  },
   {
     code: 'uc_ims_002',
     slug: 'ims-002',
@@ -160,6 +174,26 @@ export const IMS_USE_CASES: readonly ImsUseCaseRoute[] = [
     label: 'Quản lý hồ sơ Tổ chức liên quan (TCĐT, BL, ĐLPH)',
     menuLabel: 'Tổ chức liên quan',
     group: 'dossier',
+  },
+  /**
+   * Nhóm "Quản lý Tài khoản" — `docs/srs/[IMS-018] Quản lý tài khoản.md`. Chỉ
+   * dựng các màn phía IMS; màn DSS (IMS-018-1.3, 3, 4.x) thuộc cổng tổ chức.
+   */
+  {
+    code: 'uc_ims_018',
+    slug: 'ims-018',
+    ucCode: 'IMS-018',
+    label: 'Quản lý tài khoản',
+    menuLabel: 'Quản lý tài khoản',
+    group: 'account',
+  },
+  {
+    code: 'uc_ims_018_5',
+    slug: 'ims-018-5',
+    ucCode: 'IMS-018-5',
+    label: 'Phê duyệt đăng ký tài khoản chuyên trang',
+    menuLabel: 'Phê duyệt chuyên trang',
+    group: 'account',
   },
 ] as const;
 

@@ -30,7 +30,6 @@ import { RelatedOrgDetail } from './RelatedOrgDetail';
 import {
   ALL_COLUMNS,
   DOSSIER_TYPE_OPTIONS,
-  INITIAL_RELATED_ORGS,
   ORG_TYPE_OPTIONS,
   RECORD_STATUS_OPTIONS,
   RelatedOrgDraft,
@@ -38,6 +37,7 @@ import {
   displayValue,
   formatDateVN,
 } from './relatedOrgMock';
+import { useRelatedOrgRows } from './relatedOrgStore';
 
 /**
  * Tổ chức liên quan (TCĐT, BL, ĐLPH) — nhóm "Quản lý hồ sơ", CHỈ có ở /ims.
@@ -47,7 +47,7 @@ import {
  * (`ListingModule`/`OwnershipModule`/`BondModule` không quản lý nhóm tổ chức
  * này), nên đây là màn hồ sơ đầu tiên được dựng.
  *
- * GIAI ĐOẠN NÀY LÀ UI TĨNH. Dữ liệu nằm trong `useState`, chưa gọi API.
+ * GIAI ĐOẠN NÀY LÀ UI TĨNH. Dữ liệu nằm trong `relatedOrgStore.ts`, chưa gọi API.
  */
 const UC = findImsUseCaseByCode('uc_hs_tclq')!;
 
@@ -109,7 +109,8 @@ const STICKY_STT = 'sticky left-0 z-10 w-15 min-w-15 bg-white';
 const STICKY_NAME = 'sticky left-15 z-10 min-w-65 max-w-80 bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]';
 
 export const HsToChucLienQuanView: React.FC = () => {
-  const [rows, setRows] = useState<RelatedOrgRow[]>(() => [...INITIAL_RELATED_ORGS]);
+  // Kho dùng chung — IMS-018 ghi hồ sơ "Lưu tạm" vào đây khi phê duyệt đăng ký chuyên trang.
+  const [rows, setRows] = useRelatedOrgRows();
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
   const [criteria, setCriteria] = useState<Criteria>(EMPTY_CRITERIA);
   const [deleteTarget, setDeleteTarget] = useState<RelatedOrgRow | null>(null);

@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Menu, Search } from 'lucide-react';
+import { Bell, KeyRound, Menu, Search } from 'lucide-react';
 
 import { NotificationItem, UserAccount } from '../../types/hnx';
 import { IMS_USE_CASES } from '../../lib/imsRoutes';
@@ -36,6 +36,8 @@ interface ImsTopHeaderProps {
   onOpenMenu: () => void;
   /** Nhảy tới một chức năng từ ô tìm kiếm toàn cục. */
   onNavigate: (moduleCode: string) => void;
+  /** Mở popup "Đổi mật khẩu" (IMS-018-6.2) — mục duy nhất của menu cá nhân. */
+  onChangePassword?: () => void;
 }
 
 /** Hai chữ cái đầu của tên, dùng cho avatar tròn. */
@@ -51,14 +53,17 @@ export const ImsTopHeader: React.FC<ImsTopHeaderProps> = ({
   notifications,
   onOpenMenu,
   onNavigate,
+  onChangePassword,
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = (notifications || []).filter((n) => !n.readAt).length;
 
@@ -87,6 +92,7 @@ export const ImsTopHeader: React.FC<ImsTopHeaderProps> = ({
       const target = e.target as Node;
       if (searchBoxRef.current && !searchBoxRef.current.contains(target)) setShowResults(false);
       if (bellRef.current && !bellRef.current.contains(target)) setShowNotifs(false);
+      if (profileRef.current && !profileRef.current.contains(target)) setShowProfile(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
@@ -266,13 +272,48 @@ export const ImsTopHeader: React.FC<ImsTopHeaderProps> = ({
           )}
         </div>
 
-        {/* Avatar — `.header-avatar` ở file mẫu: viên tròn nền gradient thương hiệu. */}
-        <div
-          title={currentUser.fullName}
-          aria-label={currentUser.fullName}
-          className="flex h-8.5 w-8.5 items-center justify-center rounded-full bg-[linear-gradient(90deg,#003F27_0%,#00663D_33%,#009F5F_66%,#22AF73_100%)] text-[12.5px] font-semibold text-white"
-        >
-          {initialsOf(currentUser.fullName)}
+        {/*
+          Avatar — `.header-avatar` ở file mẫu: viên tròn nền gradient thương hiệu.
+
+          Bấm vào mở "profile cá nhân" thu gọn — nơi SRS [IMS-018] §2.6 đặt nút
+          "Đổi mật khẩu" (Màn hình 6.2). Không có Đăng xuất ở đây: nút đó đã nằm
+          ở card chân sidebar, hai chỗ cùng làm một việc chỉ thêm chỗ lệch nhau.
+        */}
+        <div ref={profileRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setShowProfile((v) => !v)}
+            title={currentUser.fullName}
+            aria-label={`Tài khoản: ${currentUser.fullName}`}
+            aria-haspopup="menu"
+            aria-expanded={showProfile}
+            className="flex h-8.5 w-8.5 items-center justify-center rounded-full bg-[linear-gradient(90deg,#003F27_0%,#00663D_33%,#009F5F_66%,#22AF73_100%)] text-[12.5px] font-semibold text-white"
+          >
+            {initialsOf(currentUser.fullName)}
+          </button>
+
+          {showProfile && (
+            <div role="menu" className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+              <div className="border-b border-slate-200 px-4 py-3">
+                <div className="truncate text-[13px] font-semibold text-[#292929]">{currentUser.fullName}</div>
+                <div className="truncate text-xs text-slate-500">{currentUser.username}</div>
+              </div>
+              {onChangePassword && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowProfile(false);
+                    onChangePassword();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] text-[#292929] hover:bg-slate-50"
+                >
+                  <KeyRound className="h-4 w-4 text-slate-500" />
+                  Đổi mật khẩu
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
